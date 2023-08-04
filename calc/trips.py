@@ -125,6 +125,9 @@ ATYPE_REVERSE = {
 ALL_ATYPES = [
     'still', 'on_foot', 'on_bicycle', 'in_vehicle', 'car', 'bus', 'tram', 'train', 'other', 'unknown',
 ]
+NOT_SWITCH_ATYPES = [
+    'on_bicycle', 'in_vehicle', 'car', 'bus', 'tram', 'train',
+]
 ATYPE_STILL = ALL_ATYPES.index('still')
 ATYPE_UNKNOWN = ALL_ATYPES.index('unknown')
 
@@ -230,6 +233,8 @@ def filter_legs(time, x, y, atype, distance, loc_error, speed):
     atype_counts = np.zeros(n_rows, dtype='int64')
     leg_ids = np.zeros(n_rows, dtype='int64')
 
+    leg_ways = []
+
     # First calculate how long same atype stretches we have
     for i in range(1, n_rows):
         if atype[i] == atype[i - 1] and i < n_rows - 1:
@@ -250,9 +255,13 @@ def filter_legs(time, x, y, atype, distance, loc_error, speed):
         if i > 0 and i < n_rows - MIN_SAMPLES_PER_LEG:
             if atype_counts[i] <= 3 and atype_counts[i - 1] > MIN_SAMPLES_PER_LEG:
                 atype[i] = atype[i - 1]
-                atype_counts[i] = atype_counts[i - 1]
+                atype_counts[i] = atype_counts[i - 1]   # miksei atype_counts[i] += atype_counts[i - 1]
 
-        if i == 0 or atype[i] != atype[i - 1]:
+        if i != 0 and atype[i] != atype[i - 1] and atype[i] in NOT_SWITCH_ATYPES and atype[i - 1] in NOT_SWITCH_ATYPES:
+            atype[i] = atype[i - 1]
+            atype_counts[i] += atype_counts[i - 1]
+
+        if i == 0 or atype[i] != atype[i - 1]: #Kulkemistapa on muuttunu
             if atype_counts[i] >= MIN_SAMPLES_PER_LEG and atype[i] != ATYPE_STILL and atype[i] != ATYPE_UNKNOWN:
                 # Enough good samples in this leg? We'll keep it.
                 if i > 0:
@@ -282,6 +291,30 @@ def filter_legs(time, x, y, atype, distance, loc_error, speed):
             distance[i] = dist
         leg_ids[i] = current_leg
         prev = i
+
+    earlier_i_val = 0
+    smallest_count = 0
+    smallest_i = 0
+    for i in range(n_rows):
+        if leg_ids[i] == -1 or leg_ids[i] == 0:
+            continue
+
+        leg_ways[i] = [atype[i], atype_counts[i], earlier_i_val, i]
+        earlier_i_val = i
+
+        if smallest_count == 0 or smallest_count > atype_counts[i]:
+            smallest_count = atype_counts[i]
+            smallest_i = i
+
+        if len(leg_ways) > 2:
+            leg_ways.pop(smallest_i)
+            leg_ids[smallest_i] = -1
+            smallest_count = 0
+
+            for leg in leg_ways:
+                if smallest_count == 0 or smallest_count > leg[1]:
+                    smallest_count = leg[1]
+                    smallest_i = leg[3]
 
     return leg_ids
 
