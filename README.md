@@ -170,6 +170,28 @@ POSTGRES_PASSWORD=abcdef
 CUBEJS_DB_PASS=qwerty
 ```
 
+### Extra steps for installation
+
+To get installation to work on windows machines, there are some steps you may need to take.
+- Make sure you have python virtual env running. Makes working with python projects more
+manageable.
+
+- When installing packages. Install pipwin with pip install. You will need pipwin on windows
+machines because pip does not have working windows version for some of the packages project is using.
+so you need to run both pipwin install to get windows specific versions for packages and pip install
+for rest of the packages.
+
+- If missing planet_osm tables. To get these tables download map package from openstreetmap.org
+ - for this map package you need to install program like Osm2pgsql that imports the data from map package to your database and creates
+ missing tables. (Links to the different programs to handle map packages can be found in https://planet.openstreetmap.org/)
+ - PGDATABASE=mocaf PGHOST=db PGPASSWORD=salasana PGUSER=mocaf osm2pgsql -c -s tampere.osm (example on how to import data to database)
+ - Use downloadable extract of continent. Links found in openstreetmap.org
+
+- You need to install postGis extension and timescaleDB extension to your postgres database
+  - timescaleDB is 3rd party extension for postgres and need to be installed following instructions found on their website
+    timescale.com
+
+
 ## TODO
 
 - Fix viterbi
