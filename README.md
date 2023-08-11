@@ -185,7 +185,7 @@ for rest of the packages.
  - for this map package you need to install program like Osm2pgsql that imports the data from map package to your database and creates
  missing tables. (Links to the different programs to handle map packages can be found in https://planet.openstreetmap.org/)
  - PGDATABASE=mocaf PGHOST=db PGPASSWORD=salasana PGUSER=mocaf osm2pgsql -c -s tampere.osm (example on how to import data to database)
- - Use downloadable extract of continent. Links found in openstreetmap.org
+ - Use downloadable extract of continent. Links found in openstreetmap.org(geofabrik downloads)
 
 - You need to install postGis extension and timescaleDB extension to your postgres database
   - timescaleDB is 3rd party extension for postgres and need to be installed following instructions found on their website
