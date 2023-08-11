@@ -191,6 +191,8 @@ for rest of the packages.
   - timescaleDB is 3rd party extension for postgres and need to be installed following instructions found on their website
     timescale.com
 
+- To import data from external json data source use manage.py loaddata filename
+
 
 ## TODO
 
