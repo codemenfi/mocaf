@@ -225,7 +225,7 @@ def get_transit_locations(conn, uid: str, start_time: datetime, end_time: dateti
 
 
 @numba.njit(cache=True)
-def filter_legs(time, x, y, atype, distance, loc_error, speed):
+def filter_legs(time, x, y, atype, loc_error, speed):
     n_rows = len(time)
 
     last_atype_start = 0
@@ -255,7 +255,7 @@ def filter_legs(time, x, y, atype, distance, loc_error, speed):
         if i > 0 and i < n_rows - MIN_SAMPLES_PER_LEG:
             if atype_counts[i] <= 3 and atype_counts[i - 1] > MIN_SAMPLES_PER_LEG:
                 atype[i] = atype[i - 1]
-                atype_counts[i] = atype_counts[i - 1]   # miksei atype_counts[i] += atype_counts[i - 1]
+                atype_counts[i] += atype_counts[i - 1]   # miksei atype_counts[i] += atype_counts[i - 1]
 
         if i != 0 and atype[i] != atype[i - 1] and atype[i] in NOT_SWITCH_ATYPES and atype[i - 1] in NOT_SWITCH_ATYPES:
             atype[i] = atype[i - 1]
@@ -267,7 +267,7 @@ def filter_legs(time, x, y, atype, distance, loc_error, speed):
                 if i > 0:
                     max_leg_id += 1
                 current_leg = max_leg_id
-                distance[i] = 0
+                #distance[i] = 0
                 prev = i
             else:
                 # Not enough? Amputation.
@@ -286,9 +286,9 @@ def filter_legs(time, x, y, atype, distance, loc_error, speed):
         # drop the previous sample as invalid.
         if not np.isnan(speed[i]) and abs(calc_speed - speed[i]) > 30:
             leg_ids[i - 1] = -1
-            distance[i] = 0
-        else:
-            distance[i] = dist
+    #        distance[i] = 0
+   #     else:
+    #        distance[i] = dist
         leg_ids[i] = current_leg
         prev = i
 
@@ -339,8 +339,8 @@ def split_trip_legs(conn, uid, df, include_all=False):
     df['calc_speed'] = df.speed
     df['int_atype'] = df.atype.map(ALL_ATYPES.index).astype(int)
     df['leg_id'] = filter_legs(
-        time=df.epoch_ts.to_numpy(), x=df.x.to_numpy(), y=df.y.to_numpy(), atype=df.int_atype.to_numpy(),
-        distance=df.distance.to_numpy(), loc_error=df.loc_error.to_numpy(), speed=df.speed.to_numpy(dtype=np.float64, na_value=np.nan)
+        time=df.epoch_ts.to_numpy(), x=df.x.to_numpy(), y=df.y.to_numpy(), atype=df.int_atype.to_numpy(), 
+        loc_error=df.loc_error.to_numpy(), speed=df.speed.to_numpy(dtype=np.float64, na_value=np.nan)
     )
     df.atype = df.int_atype.map(lambda x: ALL_ATYPES[x])
 
