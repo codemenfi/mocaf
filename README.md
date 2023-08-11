@@ -184,8 +184,9 @@ for rest of the packages.
 - If missing planet_osm tables. To get these tables download map package from openstreetmap.org
  - for this map package you need to install program like Osm2pgsql that imports the data from map package to your database and creates
  missing tables. (Links to the different programs to handle map packages can be found in https://planet.openstreetmap.org/)
- - PGDATABASE=mocaf PGHOST=db PGPASSWORD=salasana PGUSER=mocaf osm2pgsql -c -s tampere.osm (example on how to import data to database)
+ - osm2pgsql -c -d osm -U postgres -H localhost -S C:\default.style C:\bangkok.osm.pbf (example on how to import data to database)
  - Use downloadable extract of continent. Links found in openstreetmap.org(geofabrik downloads)
+ - https://learnosm.org/en/osm-data/osm2pgsql/
 
 - You need to install postGis extension and timescaleDB extension to your postgres database
   - timescaleDB is 3rd party extension for postgres and need to be installed following instructions found on their website
