@@ -194,6 +194,8 @@ for rest of the packages.
     timescale.com
 
 - To import data from external json data source use manage.py loaddata filename
+- Run python manage.py load_config command to import emission budget data
+ - In database on emissionbudgetlevel table column year change values to current year
 
 
 ## TODO
