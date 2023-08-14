@@ -187,6 +187,7 @@ for rest of the packages.
  - osm2pgsql -c -d osm -U postgres -H localhost -S C:\default.style C:\bangkok.osm.pbf (example on how to import data to database)
  - Use downloadable extract of continent. Links found in openstreetmap.org(geofabrik downloads)
  - https://learnosm.org/en/osm-data/osm2pgsql/
+ - Run the sql queries found in calc/sql/create_osm_views.sql
 
 - You need to install postGis extension and timescaleDB extension to your postgres database
   - timescaleDB is 3rd party extension for postgres and need to be installed following instructions found on their website
