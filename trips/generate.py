@@ -243,8 +243,6 @@ class TripGenerator:
         trip.save()
         pc.display('trip %d saved' % trip.id)
 
-        pc.display('survey enabled ')
-        pc.display(survey_enabled)
         leg_ids = df.leg_id.unique()
         for leg_id in leg_ids:
             leg_df = df[df.leg_id == leg_id]

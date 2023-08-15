@@ -53,9 +53,9 @@ def read_locations(conn, uid, start_time=None, end_time=None, include_all=False)
 
     if start_time is None:
         if isinstance(end_time, datetime):
-            start_time = end_time - timedelta(days=14)
+            start_time = end_time - timedelta(days=140)
         else:
-            start_time = (date.today() - timedelta(days=14)).isoformat()
+            start_time = (date.today() - timedelta(days=140)).isoformat()
 
     params = dict(uuid=uid, start_time=start_time, end_time=end_time)
     query = 'EXECUTE read_locations(%(uuid)s, %(start_time)s, %(end_time)s)'
@@ -130,6 +130,15 @@ NOT_SWITCH_ATYPES = [
 ]
 ATYPE_STILL = ALL_ATYPES.index('still')
 ATYPE_UNKNOWN = ALL_ATYPES.index('unknown')
+
+ATYPE_BICYCLE = ALL_ATYPES.index('on_bicycle')
+ATYPE_VEHICLE = ALL_ATYPES.index('in_vehicle')
+ATYPE_BUS = ALL_ATYPES.index('bus')
+ATYPE_CAR = ALL_ATYPES.index('car')
+ATYPE_TRAM = ALL_ATYPES.index('tram')
+ATYPE_TRAIN = ALL_ATYPES.index('train')
+
+
 
 IDX_MAPPING = {idx: ATYPE_REVERSE[x] for idx, x in enumerate(transport_modes.keys())}
 
@@ -233,7 +242,7 @@ def filter_legs(time, x, y, atype, loc_error, speed):
     atype_counts = np.zeros(n_rows, dtype='int64')
     leg_ids = np.zeros(n_rows, dtype='int64')
 
-    leg_ways = []
+   # leg_ways = []
 
     # First calculate how long same atype stretches we have
     for i in range(1, n_rows):
@@ -249,6 +258,11 @@ def filter_legs(time, x, y, atype, loc_error, speed):
     max_leg_id = 0
     current_leg = -1
     prev = 0
+
+    not_switch = [
+    ATYPE_BICYCLE, ATYPE_VEHICLE, ATYPE_CAR, ATYPE_TRAM, ATYPE_TRAIN, ATYPE_BUS,
+    ]
+
     for i in range(n_rows):
         # If we're in the middle of a trip and we have only a couple of atypes
         # for a different mode, change them to match the others.
@@ -257,7 +271,7 @@ def filter_legs(time, x, y, atype, loc_error, speed):
                 atype[i] = atype[i - 1]
                 atype_counts[i] += atype_counts[i - 1]   # miksei atype_counts[i] += atype_counts[i - 1]
 
-        if i != 0 and atype[i] != atype[i - 1] and atype[i] in NOT_SWITCH_ATYPES and atype[i - 1] in NOT_SWITCH_ATYPES:
+        if i != 0 and atype[i] != atype[i - 1] and atype[i] in not_switch and atype[i - 1] in not_switch:
             atype[i] = atype[i - 1]
             atype_counts[i] += atype_counts[i - 1]
 
@@ -267,7 +281,6 @@ def filter_legs(time, x, y, atype, loc_error, speed):
                 if i > 0:
                     max_leg_id += 1
                 current_leg = max_leg_id
-                #distance[i] = 0
                 prev = i
             else:
                 # Not enough? Amputation.
@@ -286,35 +299,39 @@ def filter_legs(time, x, y, atype, loc_error, speed):
         # drop the previous sample as invalid.
         if not np.isnan(speed[i]) and abs(calc_speed - speed[i]) > 30:
             leg_ids[i - 1] = -1
-    #        distance[i] = 0
-   #     else:
-    #        distance[i] = dist
+
         leg_ids[i] = current_leg
         prev = i
 
-    earlier_i_val = 0
+    leg_ways_atype = {}
+    leg_ways_atype_counts = {}
+    leg_ways_i = {}
+ 
     smallest_count = 0
     smallest_i = 0
     for i in range(n_rows):
         if leg_ids[i] == -1 or leg_ids[i] == 0:
             continue
 
-        leg_ways[i] = [atype[i], atype_counts[i], earlier_i_val, i]
-        earlier_i_val = i
+        leg_ways_atype[i] = atype[i]
+        leg_ways_atype_counts[i] = atype_counts[i]
+        leg_ways_i[i] = i
 
         if smallest_count == 0 or smallest_count > atype_counts[i]:
             smallest_count = atype_counts[i]
             smallest_i = i
 
-        if len(leg_ways) > 2:
-            leg_ways.pop(smallest_i)
+        if len(leg_ways_atype) > 2:
+            leg_ways_atype.pop(smallest_i)
+            leg_ways_atype_counts.pop(smallest_i)
+            leg_ways_i.pop(smallest_i)
             leg_ids[smallest_i] = -1
             smallest_count = 0
 
-            for leg in leg_ways:
-                if smallest_count == 0 or smallest_count > leg[1]:
-                    smallest_count = leg[1]
-                    smallest_i = leg[3]
+            for leg in leg_ways_i:
+                if smallest_count == 0 or smallest_count > leg_ways_atype_counts[leg]:
+                    smallest_count = leg_ways_atype_counts[leg]
+                    smallest_i = leg
 
     return leg_ids
 
