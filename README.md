@@ -197,6 +197,10 @@ for rest of the packages.
 - Run python manage.py load_config command to import emission budget data
  - In database on emissionbudgetlevel table column year change values to current year
 
+- For analytics you need to set mapbox accout and use mapbox access token tied to that account. Or use existing
+  one if you have one available
+- To run locally in settings.py uncomment last 2 rows with GDAL and GEOL paths
+
 
 ## TODO
 
