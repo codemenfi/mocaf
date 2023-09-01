@@ -598,32 +598,6 @@ class NoRecentTripsNotificationTask(NotificationTask):
 
 
 @register_for_management_command
-class NoRecentSurveyTripsNotificationTask(NotificationTask):
-    def __init__(self, now=None, engine=None, dry_run=False, devices=None, force=False, min_active_days=0):
-        super().__init__(EventTypeChoices.NO_RECENT_SURVEY_TRIPS, now, engine, dry_run, devices, force)
-
-    def recipients(self):
-        """Return devices that have not had any trips between 2 days after register and now."""
-        # Don't send anything to devices that already got a no-recent-trips notification in the last 7 days
-        avoid_duplicates_after = self.now - datetime.timedelta(days=7)
-        already_notified_devices = (NotificationLogEntry.objects
-                                    .filter(template__event_type=self.event_type)
-                                    .filter(sent_at__gte=avoid_duplicates_after)
-                                    .values('device'))
-        not_in_survey = (Device.objects
-                         .filter(survey_enabled= not True)
-                         .values('id'))
-        devices_with_recent_trips = (Device.objects
-                                     .filter(survey_enabled=True)
-                                     .filter(poll_trips__poll_legs__end_time__gt=F("registered_to_survey_at" + datetime.timedelta(days=2)))
-                                     .filter(poll_trips__poll_legs__end_time__lte=self.now)
-                                     .values('id'))
-        return (super().recipients()
-                .exclude(id__in=devices_with_recent_trips)
-                .exclude(id__in=already_notified_devices)
-                .exclude(id__in=not_in_survey))
-
-@register_for_management_command
 class SurveyNotificationTask(NotificationTask):
     def __init__(self, now=None, engine=None, dry_run=False, devices=None, force=False, min_active_days=0):
         super().__init__(EventTypeChoices.PART_OF_SURVEY, now, engine, dry_run, devices, force)
