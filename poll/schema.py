@@ -225,6 +225,10 @@ class MarkUserDayReady(graphene.Mutation, AuthenticatedDeviceNode):
 
         return dict(ok=True)
 
+class TripObject(DjangoObjectType):
+    class Meta:
+        model = Trips
+
 class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
     class Arguments:
         start_time = graphene.DateTime(required=True)
@@ -234,7 +238,8 @@ class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
         start_municipality = graphene.String(required=False, default_value = "Tampere", description='Tampere, Kangasala, Lempaala, Nokia, Orivesi, Pirkkala, Vesilahti, Ylojarvi, muu')
         end_municipality = graphene.String(required=False, default_value = "Tampere", description='Tampere, Kangasala, Lempaala, Nokia, Orivesi, Pirkkala, Vesilahti, Ylojarvi, muu')
 
-    ok = graphene.ID()
+    #ok = graphene.ID()
+    tripObj = graphene.Field(TripObject)
 
     @classmethod
     def mutate(cls, root, info, start_time,end_time,surveyId,purpose,start_municipality, end_municipality):
@@ -263,7 +268,8 @@ class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
         tripObj = Trips()
         tripObj.addTrip(partisipantObj, fixStartTime, fixEndTime, start_municipality, end_municipality, purpose)
 
-        return dict(ok=tripObj.pk)
+        return AddTrip(tripObj=tripObj)
+        #return dict(ok=tripObj.pk)
 
 class AddLeg(graphene.Mutation, AuthenticatedDeviceNode):
     class Arguments:
