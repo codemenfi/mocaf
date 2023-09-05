@@ -306,36 +306,36 @@ def filter_legs(time, x, y, atype, loc_error, speed):
 
         leg_ids[i] = current_leg
         prev = i
-
-    leg_ways_atype = {}
-    leg_ways_atype_counts = {}
-    leg_ways_i = {}
- 
-    smallest_count = 0
-    smallest_i = 0
-    for i in range(n_rows):
-        if leg_ids[i] == -1 or leg_ids[i] == 0:
-            continue
-
-        leg_ways_atype[i] = atype[i]
-        leg_ways_atype_counts[i] = atype_counts[i]
-        leg_ways_i[i] = i
-
-        if smallest_count == 0 or smallest_count > atype_counts[i]:
-            smallest_count = atype_counts[i]
-            smallest_i = i
-
-        if len(leg_ways_atype) > 2:
-            leg_ways_atype.pop(smallest_i)
-            leg_ways_atype_counts.pop(smallest_i)
-            leg_ways_i.pop(smallest_i)
-            leg_ids[smallest_i] = -1
-            smallest_count = 0
-
-            for leg in leg_ways_i:
-                if smallest_count == 0 or smallest_count > leg_ways_atype_counts[leg]:
-                    smallest_count = leg_ways_atype_counts[leg]
-                    smallest_i = leg
+#
+#    leg_ways_atype = {}
+#    leg_ways_atype_counts = {}
+#    leg_ways_i = {}
+# 
+#    smallest_count = 0
+#    smallest_i = 0
+#    for i in range(n_rows):
+#        if leg_ids[i] == -1 or leg_ids[i] == 0:
+#            continue
+#
+#        leg_ways_atype[i] = atype[i]
+#        leg_ways_atype_counts[i] = atype_counts[i]
+#        leg_ways_i[i] = i
+#
+#        if smallest_count == 0 or smallest_count > atype_counts[i]:
+#            smallest_count = atype_counts[i]
+#            smallest_i = i
+#
+#        if len(leg_ways_atype) > 2:
+#            leg_ways_atype.pop(smallest_i)
+#            leg_ways_atype_counts.pop(smallest_i)
+#            leg_ways_i.pop(smallest_i)
+#            leg_ids[smallest_i] = -1
+#            smallest_count = 0
+#
+#            for leg in leg_ways_i:
+#                if smallest_count == 0 or smallest_count > leg_ways_atype_counts[leg]:
+#                    smallest_count = leg_ways_atype_counts[leg]
+#                    smallest_i = leg
 
     return leg_ids
 
