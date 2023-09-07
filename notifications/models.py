@@ -30,6 +30,7 @@ class EventTypeChoices(models.TextChoices):
     TIMED_MESSAGE = 'timed_message', _("Timed message")
     PART_OF_SURVEY = 'part_of_survey', _("You are part of survey")
     SURVEY_START = 'survey_start', _("Survey you have signed up for begins today")
+    REMINDER_MESSAGE = 'reminder', _("Please check your daily trips and correct if needed. Trips need to be corrected and accepted within 3 days")
 
 
 def example_month(language):
@@ -76,6 +77,7 @@ available_variables = {
     EventTypeChoices.SURVEY_START: [],
     EventTypeChoices.PART_OF_SURVEY: [],
     EventTypeChoices.NO_TRIPS: [],
+    EventTypeChoices.REMINDER_MESSAGE: [],
 }
 
 variable_help_text = '<ul style="margin-left: 1em">'
