@@ -53,9 +53,9 @@ def read_locations(conn, uid, start_time=None, end_time=None, include_all=False)
 
     if start_time is None:
         if isinstance(end_time, datetime):
-            start_time = end_time - timedelta(days=140)
+            start_time = end_time - timedelta(days=14)
         else:
-            start_time = (date.today() - timedelta(days=140)).isoformat()
+            start_time = (date.today() - timedelta(days=14)).isoformat()
 
     params = dict(uuid=uid, start_time=start_time, end_time=end_time)
     query = 'EXECUTE read_locations(%(uuid)s, %(start_time)s, %(end_time)s)'
@@ -242,8 +242,6 @@ def filter_legs(time, x, y, atype, loc_error, speed):
     atype_counts = np.zeros(n_rows, dtype='int64')
     leg_ids = np.zeros(n_rows, dtype='int64')
 
-   # leg_ways = []
-
     # First calculate how long same atype stretches we have
     for i in range(1, n_rows):
         if atype[i] == atype[i - 1] and i < n_rows - 1:
@@ -269,13 +267,13 @@ def filter_legs(time, x, y, atype, loc_error, speed):
         if i > 0 and i < n_rows - MIN_SAMPLES_PER_LEG:
             if atype_counts[i] <= 3 and atype_counts[i - 1] > MIN_SAMPLES_PER_LEG:
                 atype[i] = atype[i - 1]
-                atype_counts[i] += atype_counts[i - 1]   # miksei atype_counts[i] += atype_counts[i - 1]
+                atype_counts[i] += atype_counts[i - 1]
 
         if i != 0 and atype[i] != atype[i - 1] and atype[i] in not_switch and atype[i - 1] in not_switch:
             atype[i] = atype[i - 1]
             atype_counts[i] += atype_counts[i - 1]
 
-        if i == 0 or atype[i] != atype[i - 1]: #Kulkemistapa on muuttunu
+        if i == 0 or atype[i] != atype[i - 1]: #Transport mode has change 
             if atype_counts[i] >= MIN_SAMPLES_PER_LEG and atype[i] != ATYPE_STILL and atype[i] != ATYPE_UNKNOWN:
                 # Enough good samples in this leg? We'll keep it.
                 if i > 0:
@@ -304,9 +302,30 @@ def filter_legs(time, x, y, atype, loc_error, speed):
         if not np.isnan(speed[i]) and abs(calc_speed - speed[i]) > 30:
             leg_ids[i - 1] = -1
 
+            
+
         leg_ids[i] = current_leg
         prev = i
-#
+
+    last_good_sample = -1
+    last_good_atype = -1
+    last_good_leg = -1
+    minus_max_leg = 0
+
+    for i in range(n_rows):
+        if i == 0 or leg_ids[i] == -1:
+            continue
+
+        if leg_ids[i - 1] == -1 and last_good_sample != -1 and last_good_atype == atype[i] and (last_good_leg + minus_max_leg) != leg_ids[i]:
+            minus_max_leg += 1
+
+        leg_ids[i] -= minus_max_leg
+
+        last_good_sample = i
+        last_good_atype = atype[i]
+        last_good_leg = leg_ids[i]
+        
+# If we want limit ways like three
 #    leg_ways_atype = {}
 #    leg_ways_atype_counts = {}
 #    leg_ways_i = {}
