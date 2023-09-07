@@ -675,7 +675,7 @@ class ReminderNotificationTask(NotificationTask):
         no_survey_dates = (Device.objects
                            .filter(survey_enabled=True)
                            .filter(poll_partisipants__start_date__lt=self.now)
-                           .filter(poll_partisipants__end_date__gt=self.now)
+                           .filter(poll_partisipants__end_date__gt=self.now + datetime.timedelta(days=2))
                            .values('id'))
         return (super().recipients()
                 .exclude(id__in=no_survey_dates)
