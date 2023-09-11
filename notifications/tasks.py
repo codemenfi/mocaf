@@ -662,6 +662,22 @@ class SurveyStartNotificationTask(NotificationTask):
                 .exclude(id__in=devices_with_survey_not_starting)
                 .exclude(id__in=already_notified_devices)
                 .exclude(id__in=not_in_survey))
+    
+@register_for_management_command
+class ReminderNotificationTask(NotificationTask):
+    def __init__(self, now=None, engine=None, dry_run=False, devices=None, force=False, min_active_days=0):
+        super().__init__(EventTypeChoices.REMINDER_MESSAGE, now, engine, dry_run, devices, force)
+
+    def recipients(self):
+        not_in_survey = (Device.objects
+                         .filter(survey_enabled= not True)
+                         .values('id'))
+        no_survey_dates = (Partisipants.objects
+                           .filter(start_date=F("start_date" + datetime.timedelta(days=2)))
+                           .values('device'))
+        return (super().recipients()
+                .exclude(id__in=no_survey_dates)
+                .exclude(id__in=not_in_survey))
 
 @shared_task
 def send_notifications(task_class, devices=None, **kwargs):
