@@ -16,31 +16,35 @@ class NotificationEngine(GeniemApi):
             api_token = settings.GENIEM_NOTIFICATION_API_TOKEN
         super().__init__(api_url, api_token)
 
-    def send_notification(self, devices: List[Device], title: Dict[str, str], content: Dict[str, str], type: str, action_type: str, extra_data: Optional[Dict[str, Any]] = None):
+    def send_notification(self, devices: List[Device], title: Dict[str, str], content: Dict[str, str], event_type: str, action_type: str, extra_data: Optional[Dict[str, Any]] = None):
         title_data = {'title%s' % lang.capitalize(): val for lang, val in title.items()}
         content_data = {'content%s' % lang.capitalize(): val for lang, val in content.items()}
-        current_day = datetime.date.today()
-        expire_time = datetime.time(hour=23, minute=59, second=59)
         timezone = datetime.timezone
-        if 'survey' in type:
-            type='traffic-survey'
+        if 'survey' in event_type:
+            event_type='traffic-survey'
         else:
-            type='co2'
+            event_type='co2'
 
-        if not action_type:
-            action_type = {}
-            expires = {}
-        else:
-            expires = datetime.datetime.combine(current_day, expire_time, timezone)
         if not extra_data:
             extra_data = {}
+
         data = dict(
             uuids=[str(dev.uuid) for dev in devices],
-            type=type,
-            action_type=action_type,
-            actionExpiresAt=expires
+            type=event_type,
             **title_data,
             **content_data,
             **extra_data,
         )
+        
+        if action_type:
+            current_day = datetime.date.today()
+            expire_time = datetime.time(hour=23, minute=59, second=59)
+            expires = datetime.datetime.combine(current_day, expire_time, timezone)
+            data = {
+                **data,
+                'actionType': action_type,
+                'actionExpiresAt': expires,
+            }
+
+        
         return self.post(data)

@@ -108,7 +108,7 @@ class NotificationTask:
                 contexts = self.contexts(device)
                 title = template.render_all_languages('title', contexts)
                 content = template.render_all_languages('body', contexts)
-                type = template.event_type
+                event_type = template.event_type
                 action_type = template.action_type
                 extra_data = self.get_extra_data(device, template)
                 if self.dry_run:
@@ -127,7 +127,7 @@ class NotificationTask:
                 # devices as first argument of engine.send_notification()
                 send_exception = None
                 try:
-                    response = self.engine.send_notification([device], title, content, type, action_type, extra_data=extra_data).json()
+                    response = self.engine.send_notification([device], title, content, event_type, action_type, extra_data=extra_data).json()
                 except Exception as e:
                     send_exception = e
 
