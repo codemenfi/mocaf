@@ -18,6 +18,8 @@ class Question_type_choice(Enum):
     feeling = "feeling"
     somethingelse = "somethingelse"
 
+
+# Deprecated
 class Trip_purpose(Enum):
     tyo = "työ"
     opiskelu = "opiskelu"
@@ -26,6 +28,7 @@ class Trip_purpose(Enum):
     ostos = "ostos"
     muu = "muu asiointi ja kyyditseminen"
     tyhja = "tyhja"
+
 
 class Municipality_choice(Enum):
     Tampere = "Tampere"
@@ -37,6 +40,7 @@ class Municipality_choice(Enum):
     Vesilahti = "Vesilahti"
     Ylojarvi = "Ylöjärvi"
     muu = "muu Suomi"
+
 
 class SurveyInfo(models.Model):
     start_day = models.DateField(null=False)
@@ -63,14 +67,14 @@ class Questions(models.Model):
     question_data = models.JSONField(null=True)
     question_type = models.CharField(
         max_length=15,
-        default=Question_type_choice('background').value,
-        choices=[(tag, tag.value) for tag in Question_type_choice] 
+        default=Question_type_choice("background").value,
+        choices=[(tag, tag.value) for tag in Question_type_choice],
     )
     is_use = models.BooleanField(default=True)
     description = models.TextField(null=True)
 
     survey_info = models.ForeignKey(
-        'poll.SurveyInfo', on_delete=models.CASCADE, null=True
+        "poll.SurveyInfo", on_delete=models.CASCADE, null=True
     )
 
     class Meta:
@@ -81,13 +85,12 @@ class Questions(models.Model):
             )
         ]
 
+
 class Partisipants(models.Model):
-    device = models.ForeignKey(
-        'trips.Device', on_delete=models.CASCADE, null=True
-    )
-    
+    device = models.ForeignKey("trips.Device", on_delete=models.CASCADE, null=True)
+
     survey_info = models.ForeignKey(
-        'poll.SurveyInfo', on_delete=models.CASCADE, null=True
+        "poll.SurveyInfo", on_delete=models.CASCADE, null=True
     )
 
     start_date = models.DateField(null=False)
@@ -96,43 +99,61 @@ class Partisipants(models.Model):
 
     approved = models.BooleanField(null=False, default=False)
 
+    #    back_question = models.ForeignKey(
+    #        'poll.questions', on_delete=models.PROTECT, null=True, limit_choices_to={'question_type': 'backgroud'}, related_name='+'
+    #    )
 
-#    back_question = models.ForeignKey(
-#        'poll.questions', on_delete=models.PROTECT, null=True, limit_choices_to={'question_type': 'backgroud'}, related_name='+'
-#    )
-
-    
     back_question_answers = models.JSONField(null=True)
 
-
-#    feeling_question = models.ForeignKey(
-#        'poll.questions', on_delete=models.PROTECT, null=True, limit_choices_to={'question_type': 'feeling'}, related_name='+'
-#    )
+    #    feeling_question = models.ForeignKey(
+    #        'poll.questions', on_delete=models.PROTECT, null=True, limit_choices_to={'question_type': 'feeling'}, related_name='+'
+    #    )
 
     feeling_question_answers = models.JSONField(null=True)
 
-
     class Meta:
-        unique_together = ('device', 'survey_info')
-
+        unique_together = ("device", "survey_info")
 
 
 class DayInfo(models.Model):
     partisipant = models.ForeignKey(
-        'poll.Partisipants', on_delete=models.CASCADE, null=True
+        "poll.Partisipants", on_delete=models.CASCADE, null=True
     )
 
     date = models.DateField(null=False)
 
     approved = models.BooleanField(null=False, default=False)
 
+
 class Lottery(models.Model):
     user_name = models.TextField()
     user_email = models.EmailField()
 
+
+TRAVEL_TO_WORK_TRIP = "travel_to_work_trip"
+BUSINESS_TRIP = "travel_to_work_trip"
+SCHOOL_TRIP = "school_trip"
+LEISURE_TRIP = "leisure_trip"
+SHOPPING_TRIP = "shopping_trip"
+AFFAIR_TRIP = "affair_trip"
+PASSENGER_TRANSPORT_TRIP = "passenger_transport_trip"
+
+TRIP_PURPOSE_CHOICES = (
+    (TRAVEL_TO_WORK_TRIP, "Työmatka"),
+    (BUSINESS_TRIP, "Työasiamatka"),
+    (SCHOOL_TRIP, "Koulu- tai opiskelumatka"),
+    (LEISURE_TRIP, "Vapaa-ajanmatka"),
+    (SHOPPING_TRIP, "Ostosmatka"),
+    (AFFAIR_TRIP, "Asiointimatka"),
+    (PASSENGER_TRANSPORT_TRIP, "Kyyditseminen"),
+    ("", "Tyhjä"),
+    ("tyhja", "Tyhjä"),
+)
+
+
 class Trips(models.Model):
     partisipant = models.ForeignKey(
-        'poll.Partisipants', on_delete=models.CASCADE, null=True
+        "poll.Partisipants", on_delete=models.CASCADE, null=True
     )
 
     start_time = models.DateTimeField()
@@ -141,24 +162,24 @@ class Trips(models.Model):
     deleted = models.BooleanField(null=True, default=False)
 
     purpose = models.CharField(
-        max_length=20,
-        default=Trip_purpose('tyhja').value,
+        max_length=24,
+        default="",
         null=False,
-        choices=[(tag, tag.value) for tag in Trip_purpose] 
+        choices=TRIP_PURPOSE_CHOICES,
     )
 
     approved = models.BooleanField(null=False, default=False)
 
     start_municipality = models.CharField(
         max_length=20,
-        default=Municipality_choice('Tampere').value,
-        choices=[(tag, tag.value) for tag in Municipality_choice] 
+        default=Municipality_choice("Tampere").value,
+        choices=[(tag, tag.value) for tag in Municipality_choice],
     )
 
     end_municipality = models.CharField(
         max_length=20,
-        default=Municipality_choice('Tampere').value,
-        choices=[(tag, tag.value) for tag in Municipality_choice] 
+        default=Municipality_choice("Tampere").value,
+        choices=[(tag, tag.value) for tag in Municipality_choice],
     )
 
     def deleteTrip(self):
@@ -167,8 +188,18 @@ class Trips(models.Model):
             self.save()
         else:
             self.delete()
-    
-    def addTrip(self, partisipantObj, StartTime, EndTime, start_municipality, end_municipality, purpose = "tyhja", approved = False, original_trip = False):
+
+    def addTrip(
+        self,
+        partisipantObj,
+        StartTime,
+        EndTime,
+        start_municipality,
+        end_municipality,
+        purpose="travel_to_work_trip",
+        approved=False,
+        original_trip=False,
+    ):
         self.partisipant = partisipantObj
         self.start_time = StartTime
         self.end_time = EndTime
@@ -178,21 +209,21 @@ class Trips(models.Model):
         self.end_municipality = end_municipality
         self.approved = approved
         self.save()
-    
+
     def getPurposeVal(self):
         return self.get_purpose_display()
-    
+
     def getstartMunicipalityVal(self):
         return self.get_start_municipality_display()
-    
+
     def getendMunicipalityVal(self):
         return self.get_end_municipality_display()
-    
+
     class Meta:
         constraints = [
             models.CheckConstraint(
                 name="purpose",
-                check=models.Q(purpose__in=Trip_purpose._member_map_),
+                check=models.Q(purpose__in=[t[0] for t in TRIP_PURPOSE_CHOICES]),
             ),
             models.CheckConstraint(
                 name="startmunicipality",
@@ -201,14 +232,12 @@ class Trips(models.Model):
             models.CheckConstraint(
                 name="endmunicipality",
                 check=models.Q(end_municipality__in=Municipality_choice._member_map_),
-            )
-        
+            ),
         ]
 
+
 class Legs(models.Model):
-    trip = models.ForeignKey(
-        'poll.Trips', on_delete=models.CASCADE, null=True
-    )
+    trip = models.ForeignKey("poll.Trips", on_delete=models.CASCADE, null=True)
 
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
@@ -219,16 +248,12 @@ class Legs(models.Model):
 
     nr_passengers = models.IntegerField(null=True)
 
-    transport_mode = models.CharField(
-        max_length=20,
-         null=True
-    )
+    transport_mode = models.CharField(max_length=20, null=True)
 
     start_loc = models.PointField(null=True, srid=4326)
     end_loc = models.PointField(null=True, srid=4326)
-       
 
-    original_leg = models.BooleanField(null=True,default=True)
+    original_leg = models.BooleanField(null=True, default=True)
     deleted = models.BooleanField(null=True, default=False)
 
     def deleteLeg(self):
@@ -239,6 +264,7 @@ class Legs(models.Model):
             self.delete()
 
         return True
+
 
 class LegsLocationQuerySet(models.QuerySet):
     def _get_expired_query(self):
@@ -255,7 +281,7 @@ class LegsLocationQuerySet(models.QuerySet):
 
 
 class LegsLocation(models.Model):
-    leg = models.ForeignKey(Legs, on_delete=models.CASCADE, related_name='locations')
+    leg = models.ForeignKey(Legs, on_delete=models.CASCADE, related_name="locations")
     loc = models.PointField(null=False, srid=4326)
     time = models.DateTimeField()
     speed = models.FloatField(null=True)
@@ -263,8 +289,8 @@ class LegsLocation(models.Model):
     objects = LegsLocationQuerySet.as_manager()
 
     class Meta:
-        ordering = ('leg', 'time')
+        ordering = ("leg", "time")
 
     def __str__(self):
         time = self.time.astimezone(LOCAL_TZ)
-        return '%s: %s (%.1f km/h)' % (time, self.loc, self.speed * 3.6)
+        return "%s: %s (%.1f km/h)" % (time, self.loc, self.speed * 3.6)
