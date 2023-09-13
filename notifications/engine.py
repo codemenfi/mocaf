@@ -42,7 +42,7 @@ class NotificationEngine(GeniemApi):
             expires = datetime.datetime.combine(current_day, expire_time, timezone)
             data = {
                 **data,
-                'action_type': action_type,
+                'actionType': action_type,
                 'actionExpiresAt': expires,
             }
 
