@@ -21,7 +21,7 @@ class NotificationEngine(GeniemApi):
         if not extra_data:
             extra_data = {}
         data = dict(
-            type,
+            type=type,
             uuids=[str(dev.uuid) for dev in devices],
             **title_data,
             **content_data,
