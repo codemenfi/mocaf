@@ -243,7 +243,7 @@ class MarkUserDayReady(graphene.Mutation, AuthenticatedDeviceNode):
         )
 
         for trip in tripsObj:
-            if trip.purpose == "tyhja":
+            if trip.purpose == "":
                 raise GraphQLError("All date trip needs purpose", [info])
 
             if trip.approved == False:
@@ -343,9 +343,6 @@ class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
             or not dayObjChk
         ):
             raise GraphQLError("Times are bad", [info])
-
-        if purpose == "":
-            purpose = "tyhja"
 
         tripObj = Trips()
         tripObj.addTrip(
@@ -1007,7 +1004,7 @@ class EditTrip(graphene.Mutation, AuthenticatedDeviceNode):
             raise GraphQLError("Dates can be edited only three days", [info])
 
         if approved != "" and approved == True:
-            if tripObj.purpose == "tyhja" and purpose == "":
+            if tripObj.purpose == "" and purpose == "":
                 raise GraphQLError("Trip needs purpose", [info])
 
             legsObj = Legs.objects.filter(trip=trip_id)
@@ -1224,11 +1221,6 @@ class Query(graphene.ObjectType):
         tripsObj = Trips.objects.filter(
             partisipant=partisipantObj, start_time__date=day, deleted=False
         )
-
-        if tripsObj:
-            for tripObj in tripsObj:
-                if tripObj.purpose == "tyhja":
-                    tripObj.purpose = ""
 
         return tripsObj
 
