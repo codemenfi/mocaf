@@ -109,7 +109,7 @@ class BodyPanel(FieldPanel):
 
 class NotificationTemplate(models.Model):
     event_type = models.CharField(max_length=26, choices=EventTypeChoices.choices)
-    action_type = models.CharField(max_length=46, choices=ActionTypeChoises.choices, null=True)
+    action_type = models.CharField(max_length=46, choices=ActionTypeChoises.choices, null=True, blank=True)
     title = models.CharField(max_length=255)
     send_on = models.DateField(blank=True, null=True, help_text="Date on which the timed notification will be sent")
     groups = models.ManyToManyField('trips.DeviceGroup', blank=True)
