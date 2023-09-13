@@ -15,12 +15,13 @@ class NotificationEngine(GeniemApi):
             api_token = settings.GENIEM_NOTIFICATION_API_TOKEN
         super().__init__(api_url, api_token)
 
-    def send_notification(self, devices: List[Device], title: Dict[str, str], content: Dict[str, str], extra_data: Optional[Dict[str, Any]] = None):
+    def send_notification(self, devices: List[Device], title: Dict[str, str], content: Dict[str, str], type: str, extra_data: Optional[Dict[str, Any]] = None):
         title_data = {'title%s' % lang.capitalize(): val for lang, val in title.items()}
         content_data = {'content%s' % lang.capitalize(): val for lang, val in content.items()}
         if not extra_data:
             extra_data = {}
         data = dict(
+            type=type,
             uuids=[str(dev.uuid) for dev in devices],
             **title_data,
             **content_data,

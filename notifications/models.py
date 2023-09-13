@@ -28,9 +28,9 @@ class EventTypeChoices(models.TextChoices):
     HEALTH_SUMMARY_NO_LEVEL_REACHED = 'health_summary_no_level', _("Health summary (worse than bronze budget)")
     HEALTH_SUMMARY_NO_DATA = 'health_summary_no_data', _("Health summary (no physical activity trips)")
     TIMED_MESSAGE = 'timed_message', _("Timed message")
-    PART_OF_SURVEY = 'part_of_survey', _("You are part of survey")
-    SURVEY_START = 'survey_start', _("Survey you have signed up for begins today")
-    REMINDER_MESSAGE = 'reminder', _("Please check your daily trips and correct if needed. Trips need to be corrected and accepted within 3 days")
+    END_OF_SURVEY = 'end_of_survey', _("Survey has ended")
+    SURVEY_START = 'survey_start', _("Survey starting date")
+    REMINDER_MESSAGE = 'reminder', _("Daily trip reminder")
 
 
 def example_month(language):
@@ -75,7 +75,7 @@ available_variables = {
     EventTypeChoices.NO_RECENT_TRIPS: [],
     EventTypeChoices.TIMED_MESSAGE: [],
     EventTypeChoices.SURVEY_START: [],
-    EventTypeChoices.PART_OF_SURVEY: [],
+    EventTypeChoices.END_OF_SURVEY: [],
     EventTypeChoices.NO_TRIPS: [],
     EventTypeChoices.REMINDER_MESSAGE: [],
 }
