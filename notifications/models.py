@@ -33,6 +33,11 @@ class EventTypeChoices(models.TextChoices):
     REMINDER_MESSAGE = 'reminder', _("Daily trip reminder")
 
 
+class ActionTypeChoises(models.TextChoices):
+    OPEN_SURVEY_CORRECTION= 'open_traffic_survey_correction_info',_("Function check")
+    ENABLE_SURVEY = 'enable_traffic_survey', _("Survey info message")
+    OPEN_SURVEY = 'open_traffic_survey',_("Check your day trips")
+
 def example_month(language):
     with override(language):
         today = timezone.now().date()
@@ -78,6 +83,9 @@ available_variables = {
     EventTypeChoices.END_OF_SURVEY: [],
     EventTypeChoices.NO_TRIPS: [],
     EventTypeChoices.REMINDER_MESSAGE: [],
+    ActionTypeChoises.OPEN_SURVEY: [],
+    ActionTypeChoises.ENABLE_SURVEY: [],
+    ActionTypeChoises.OPEN_SURVEY_CORRECTION: [],
 }
 
 variable_help_text = '<ul style="margin-left: 1em">'
@@ -101,6 +109,7 @@ class BodyPanel(FieldPanel):
 
 class NotificationTemplate(models.Model):
     event_type = models.CharField(max_length=26, choices=EventTypeChoices.choices)
+    action_type = models.CharField(max_length=46, choices=ActionTypeChoises.choices, null=True)
     title = models.CharField(max_length=255)
     send_on = models.DateField(blank=True, null=True, help_text="Date on which the timed notification will be sent")
     groups = models.ManyToManyField('trips.DeviceGroup', blank=True)
@@ -110,6 +119,7 @@ class NotificationTemplate(models.Model):
 
     panels = [
         FieldPanel('event_type'),
+        FieldPanel('action_type'),
         HelpPanel(heading=_("Available variables by event type"), content=variable_help_text),
         FieldPanel('send_on'),
         FieldPanel('groups'),

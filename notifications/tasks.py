@@ -109,6 +109,7 @@ class NotificationTask:
                 title = template.render_all_languages('title', contexts)
                 content = template.render_all_languages('body', contexts)
                 type = template.event_type
+                action_type = template.action_type
                 extra_data = self.get_extra_data(device, template)
                 if self.dry_run:
                     print(f"Sending notification to {device.uuid}")
@@ -126,7 +127,7 @@ class NotificationTask:
                 # devices as first argument of engine.send_notification()
                 send_exception = None
                 try:
-                    response = self.engine.send_notification([device], title, content, type, extra_data=extra_data).json()
+                    response = self.engine.send_notification([device], title, content, type, action_type, extra_data=extra_data).json()
                 except Exception as e:
                     send_exception = e
 
@@ -653,11 +654,7 @@ class SurveyStartNotificationTask(NotificationTask):
         super().__init__(EventTypeChoices.SURVEY_START, now, engine, dry_run, devices, force)
 
     def recipients(self):
-        already_notified_devices = (NotificationLogEntry.objects
-                                    .filter(template__event_type=self.event_type)
-                                    .values('device'))
-        return (super().recipients()
-                .exclude(id__in=already_notified_devices))
+        return (super().recipients())
     
 @register_for_management_command
 class ReminderNotificationTask(NotificationTask):
