@@ -150,20 +150,28 @@ CELERY_BEAT_SCHEDULE = {
             'expires': 2 * 24 * 60 * 60,  #  2 days
         }
     },
-     'send-survey-notifications': {
+     'send-survey-end-notifications': {
         'task': 'notifications.tasks.send_notifications',
-        'args': ('notifications.tasks.SurveyNotificationTask',),
+        'args': ('notifications.tasks.SurveyEndNotificationTask',),
         'schedule': crontab(hour=10, minute=0),
         'options': {
-            'expires': 23 * 60 * 60,  #  2 days
+            'expires': 23 * 60 * 60,  #  23 hours
         }
     },
-     'send-survey-start-notifications': {
+    # 'send-survey-start-notifications': {
+    #   'task': 'notifications.tasks.send_notifications',
+    #    'args': ('notifications.tasks.SurveyStartNotificationTask',),
+    #    'schedule': crontab(hour=10, minute=0),
+    #    'options': {
+    #        'expires':  23 * 60 * 60,  #  23 hours
+    #    }
+    #},
+    'send-reminder-notifications': {
         'task': 'notifications.tasks.send_notifications',
-        'args': ('notifications.tasks.SurveyStartNotificationTask',),
-        'schedule': crontab(hour=10, minute=0),
+        'args': ('notifications.tasks.ReminderNotificationTask',),
+        'schedule': crontab(hour=18, minute=0),
         'options': {
-            'expires':  23 * 60 * 60,  #  2 days
+            'expires':  23 * 60 * 60,  #  23 hours
         }
     },
     # TODO: Update the following.
