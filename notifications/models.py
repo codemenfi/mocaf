@@ -21,7 +21,7 @@ class EventTypeChoices(models.TextChoices):
     MONTHLY_SUMMARY_NO_LEVEL_REACHED = 'monthly_summary_no_level', _("Monthly summary (worse than bronze budget)")
     WELCOME_MESSAGE = 'welcome_message', _("Welcome message")
     NO_RECENT_TRIPS = 'no_recent_trips', _("No recent trips")
-    NO_TRIPS = 'no_trips', _("No trips after registered to survey")
+    NO_TRIPS = 'no_trips-survey', _("No trips after registered to survey")
     HEALTH_SUMMARY_GOLD = 'health_summary_gold', _("Health summary (gold-level budget)")
     HEALTH_SUMMARY_SILVER = 'health_summary_silver', _("Health summary (silver-level budget)")
     HEALTH_SUMMARY_BRONZE = 'health_summary_bronze', _("Health summary (bronze-level budget)")
@@ -30,7 +30,7 @@ class EventTypeChoices(models.TextChoices):
     TIMED_MESSAGE = 'timed_message', _("Timed message")
     END_OF_SURVEY = 'end_of_survey', _("Survey has ended")
     SURVEY_START = 'survey_start', _("Survey starting date")
-    REMINDER_MESSAGE = 'reminder', _("Daily trip reminder")
+    REMINDER_MESSAGE = 'reminder-survey', _("Daily trip reminder")
 
 
 class ActionTypeChoises(models.TextChoices):
