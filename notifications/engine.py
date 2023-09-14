@@ -20,17 +20,12 @@ class NotificationEngine(GeniemApi):
         title_data = {'title%s' % lang.capitalize(): val for lang, val in title.items()}
         content_data = {'content%s' % lang.capitalize(): val for lang, val in content.items()}
         timezone = datetime.timezone
-        if 'survey' in event_type:
-            event_type='traffic-survey'
-        else:
-            event_type='co2'
 
         if not extra_data:
             extra_data = {}
 
         data = dict(
             uuids=[str(dev.uuid) for dev in devices],
-            type=event_type,
             **title_data,
             **content_data,
             **extra_data,
@@ -44,6 +39,12 @@ class NotificationEngine(GeniemApi):
                 **data,
                 'actionType': action_type,
                 'actionExpiresAt': expires,
+            }
+
+        if 'survey' in event_type:
+            data = {
+                **data,
+                'type': 'traffic-survey',
             }
 
         

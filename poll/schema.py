@@ -17,6 +17,77 @@ from types import SimpleNamespace
 LOCAL_TZ = pytz.timezone("Europe/Helsinki")
 
 
+class PollLegNode(DjangoNode, AuthenticatedDeviceNode):
+    can_update = graphene.Boolean()
+    geometry = LineStringScalar()
+
+    def resolve_can_update(root: Legs, info):
+        return root.can_user_update()
+
+    def resolve_geometry(root: Legs, info):
+        if not root.can_user_update():
+            points = []
+        else:
+            points = list(
+                root.locations.active().values_list("loc", flat=True).order_by("time")
+            )
+        return LineString(points)
+
+    def resolve_locations(root: Legs, info):
+        if not root.can_user_update():
+            points = []
+        else:
+            points = root.locations.active()
+        return points
+
+    class Meta:
+        model = Legs
+        fields = [
+            "id",
+            "trip",
+            "start_time",
+            "end_time",
+            "trip_length",
+            "carbon_footprint",
+            "nr_passengers",
+            "transport_mode",
+            "start_loc",
+            "end_loc",
+            "original_leg",
+            "deleted",
+            "can_update",
+            "geometry",
+        ]
+
+
+class TripNode(DjangoNode, AuthenticatedDeviceNode):
+    legs = graphene.List(
+        PollLegNode,
+        offset=graphene.Int(),
+        limit=graphene.Int(),
+        order_by=graphene.String(),
+    )
+    start_time = graphene.DateTime()
+    end_time = graphene.DateTime()
+    length = graphene.Float()
+
+    class Meta:
+        model = Trips
+        fields = [
+            "id",
+            "legs",
+            "partisipant",
+            "start_time",
+            "end_time",
+            "original_trip",
+            "deleted",
+            "purpose",
+            "approved",
+            "start_municipality",
+            "end_municipality",
+        ]
+
+
 class PointModelType(graphene.ObjectType):
     location = graphene.Field(graphene.String, to=PointScalar())
 
@@ -483,6 +554,123 @@ class AddLeg(graphene.Mutation, AuthenticatedDeviceNode):
             okVal = False
 
         return dict(ok=okVal)
+
+
+class EditLeg(graphene.Mutation, AuthenticatedDeviceNode):
+    class Arguments:
+        leg_id = graphene.ID(required=True)
+        start_time = graphene.DateTime(required=True)
+        end_time = graphene.DateTime(required=True)
+        trip_length = graphene.Float(required=False, default_value="")
+        transport_mode = graphene.String(required=False, default_value="")
+        carbon_footprint = graphene.String(required=False, default_value="")
+        nr_passengers = graphene.String(required=False, default_value="")
+        start_loc = graphene.Argument(PointScalar, required=False, default_value="")
+        end_loc = graphene.Argument(PointScalar, required=False, default_value="")
+
+    ok = graphene.Boolean()
+    leg = graphene.Field(PollLegNode)
+
+    @classmethod
+    def mutate(
+        cls,
+        root,
+        info,
+        leg_id,
+        start_time,
+        end_time,
+        trip_length="",
+        transport_mode="",
+        carbon_footprint="",
+        nr_passengers="",
+        start_loc="",
+        end_loc="",
+    ):
+        try:
+            leg = Legs.objects.get(pk=leg_id)
+        except Legs.DoesNotExist:
+            raise GraphQLError("Leg does not exist", [info])
+
+        start_time_d = LOCAL_TZ.localize(start_time, is_dst=None)
+        end_time_d = LOCAL_TZ.localize(end_time, is_dst=None)
+        utc_start_time = start_time_d.astimezone(pytz.utc)
+        utc_end_time = end_time_d.astimezone(pytz.utc)
+
+        dt_now = datetime.today()
+        end_time_limit = end_time + timedelta(days=3)
+        if dt_now > end_time_limit:
+            raise GraphQLError("Dates can be edited only three days", [info])
+
+        overlapping_legs = Legs.objects.filter(
+            Q(Q(start_time__gt=utc_start_time) & Q(start_time__lt=utc_end_time))
+            | Q(Q(end_time__gt=utc_start_time) & Q(end_time__lt=utc_end_time))
+            | Q(Q(start_time__lte=utc_start_time) & Q(end_time__gte=utc_end_time)),
+            deleted=False,
+            trip=leg.trip,
+        ).exclude(pk=leg_id)
+
+        if start_time >= end_time or overlapping_legs:
+            raise GraphQLError("Times are bad", [info])
+
+        try:
+            with transaction.atomic():
+                if leg.trip.approved == True:
+                    raise GraphQLError("Trip is allready approved", [info])
+                elif leg.trip.deleted == True:
+                    raise GraphQLError("Trip is deleted", [info])
+
+                poll_day = DayInfo.objects.filter(
+                    date=utc_start_time.date(),
+                    approved=False,
+                    partisipant=leg.trip.partisipant,
+                )
+
+                if not poll_day:
+                    raise GraphQLError("Start day is invalid", [info])
+
+                # legsObj.trip = tripObj
+                leg.start_time = utc_start_time
+                leg.end_time = utc_end_time
+
+                if trip_length != "":
+                    leg.trip_length = trip_length
+
+                if transport_mode != "":
+                    leg.transport_mode = transport_mode
+
+                if carbon_footprint != "":
+                    leg.carbon_footprint = carbon_footprint
+
+                if nr_passengers != "":
+                    leg.nr_passengers = nr_passengers
+
+                leg.original_leg = False
+
+                if start_loc != "":
+                    leg.start_loc = PointModelType(start_loc)
+
+                if end_loc != "":
+                    leg.end_loc = PointModelType(end_loc)
+
+                leg.save()
+
+                trip_changed = False
+
+                if utc_start_time < leg.trip.start_time:
+                    leg.trip.start_time = utc_start_time
+                    trip_changed = True
+
+                if utc_end_time > leg.trip.end_time:
+                    leg.trip.end_time = utc_end_time
+                    trip_changed = True
+
+                if trip_changed:
+                    leg.trip.save()
+
+        except DatabaseError:
+            return dict(ok=False, leg=leg)
+
+        return dict(ok=True, leg=leg)
 
 
 class AddLegs(graphene.Mutation, AuthenticatedDeviceNode):
@@ -1073,6 +1261,7 @@ class Mutations(graphene.ObjectType):
     pollAddTrip = AddTrip.Field()
     pollAddLeg = AddLeg.Field()
     pollAddLegs = AddLegs.Field()
+    pollEditLeg = EditLeg.Field()
     pollDelTrip = DelTrip.Field()
     pollDelTrips = DelTrips.Field()
     pollDelLeg = DelLeg.Field()
