@@ -7,7 +7,7 @@ from celery import shared_task
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Q
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import override
@@ -612,7 +612,7 @@ class NoTripsTask(NotificationTask):
                                     .filter(sent_at__lte=F("poll_partisipants__registered_to_survey_at" + datetime.timedelta(days=2)))
                                     .values('device'))
         not_in_survey = (Device.objects
-                         .filter(survey_enabled= not True)
+                         .filter(~Q(survey_enabled=True))
                          .values('id'))
         
         has_survey_trips = (Partisipants.objects
@@ -637,10 +637,10 @@ class SurveyEndNotificationTask(NotificationTask):
                                     .filter(template__event_type=self.event_type)
                                     .values('device'))
         survey_not_approved = (Partisipants.objects
-                        .filter(approved=not True)
+                        .filter(~Q(approved=True))
                         .values('device'))
         not_in_survey = (Device.objects
-                         .filter(survey_enabled= not True)
+                         .filter(~Q(survey_enabled=True))
                          .values('id'))
         return (super().recipients()
                 .exclude(id__in=already_notified_devices)
@@ -663,7 +663,7 @@ class ReminderNotificationTask(NotificationTask):
 
     def recipients(self):
         not_in_survey = (Device.objects
-                         .filter(survey_enabled= not True)
+                         .filter(~Q(survey_enabled=True))
                          .values('id'))
         no_survey_dates = (Partisipants.objects
                            .filter(start_date_gte=F("start_date" + datetime.timedelta(days=2)))
