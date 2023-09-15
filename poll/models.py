@@ -146,7 +146,6 @@ TRIP_PURPOSE_CHOICES = (
     (SHOPPING_TRIP, "Ostosmatka"),
     (AFFAIR_TRIP, "Asiointimatka"),
     (PASSENGER_TRANSPORT_TRIP, "Kyyditseminen"),
-    ("", "Tyhjä"),
     ("tyhja", "Tyhjä"),
 )
 
@@ -163,7 +162,7 @@ class Trips(models.Model):
 
     purpose = models.CharField(
         max_length=24,
-        default="",
+        default="tyhja",
         null=False,
         choices=TRIP_PURPOSE_CHOICES,
     )

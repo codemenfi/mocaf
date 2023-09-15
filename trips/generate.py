@@ -266,12 +266,13 @@ class TripGenerator:
         all_rows_survey = []
         survey_enabled = Device.objects.get(uuid=uuid).survey_enabled
         mocaf_enabled = Device.objects.get(uuid=uuid).mocaf_enabled
-        
+        device_id = Device.objects.get(uuid=uuid).id
+        partisipant_id = Partisipants.objects.filter(device=device_id).values('id')
         if (survey_enabled == True and mocaf_enabled == True ):
             trip = Trip(device=device)
-            survey_trip = Trips(start_time=min_time, end_time=max_time)
+            survey_trip = Trips(start_time=min_time, end_time=max_time, partisipant_id=partisipant_id)
         elif(survey_enabled == True):
-            trip = Trips(start_time=min_time, end_time=max_time)
+            trip = Trips(start_time=min_time, end_time=max_time, partisipant_id=partisipant_id)
         else:
             trip = Trip(device=device)
         if (survey_enabled == True and mocaf_enabled == True):
