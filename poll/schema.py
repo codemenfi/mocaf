@@ -380,6 +380,11 @@ class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
         timetestVal = end_time + timedelta(days=3)
         if dt_now > timetestVal:
             raise GraphQLError("Dates can be edited only three days", [info])
+        
+        if (
+            start_time >= end_time
+        ):
+            raise GraphQLError("Start time is later than end time", [info])
 
         partisipantObj = Partisipants.objects.get(survey_info=surveyId, device=device)
 
@@ -407,13 +412,16 @@ class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
         )
 
         if (
-            start_time >= end_time
-            or tripsObjChk
+            tripsObjChk
             or tripsObjChk2
             or tripsObjChk3
-            or not dayObjChk
         ):
-            raise GraphQLError("Times are bad", [info])
+            raise GraphQLError("Given times is leg allready", [info])
+        
+        if (
+            not dayObjChk
+        ):
+            raise GraphQLError("There arent survey on that time", [info])
 
         tripObj = Trips()
         tripObj.addTrip(
@@ -431,8 +439,8 @@ class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
 class AddLeg(graphene.Mutation, AuthenticatedDeviceNode):
     class Arguments:
         trip_id = graphene.ID(required=True)
-        start_time = graphene.DateTime(required=True)
-        end_time = graphene.DateTime(required=True)
+        start_time = graphene.DateTime(required=False, default_value="")
+        end_time = graphene.DateTime(required=False, default_value="")
         trip_length = graphene.Float(required=False, default_value="")
         transport_mode = graphene.String(required=False, default_value="")
         carbon_footprint = graphene.String(required=False, default_value="")
@@ -457,6 +465,14 @@ class AddLeg(graphene.Mutation, AuthenticatedDeviceNode):
         start_loc="",
         end_loc="",
     ):
+        if start_time == "":
+            legObj = Legs.objects.filter(
+                trip=trip_id,
+            ).latest('start_time')
+            start_time = legObj.start_time
+            end_time = legObj.end_time + timedelta(seconds=1)
+
+
         start_time_d = LOCAL_TZ.localize(start_time, is_dst=None)
         end_time_d = LOCAL_TZ.localize(end_time, is_dst=None)
         fixStartTime = start_time_d.astimezone(pytz.utc)
@@ -537,18 +553,18 @@ class AddLeg(graphene.Mutation, AuthenticatedDeviceNode):
 
                 legsObj.save()
 
-                tripObjChange = False
-
-                if fixStartTime < tripObj.start_time:
-                    tripObj.start_time = fixStartTime
-                    tripObjChange = True
-
-                if fixEndTime > tripObj.end_time:
-                    tripObj.end_time = fixEndTime
-                    tripObjChange = True
-
-                if tripObjChange:
-                    tripObj.save()
+#                tripObjChange = False
+#
+#                if fixStartTime < tripObj.start_time:
+#                    tripObj.start_time = fixStartTime
+#                    tripObjChange = True
+#
+#                if fixEndTime > tripObj.end_time:
+#                    tripObj.end_time = fixEndTime
+#                    tripObjChange = True
+#
+#                if tripObjChange:
+#                    tripObj.save()
 
         except DatabaseError:
             okVal = False
