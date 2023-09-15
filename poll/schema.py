@@ -368,63 +368,60 @@ class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
         end_municipality,
     ):
         device = info.context.device
+        partisipant = Partisipants.objects.get(survey_info=surveyId, device=device)
+
+        if start_time == "":
+            raise GraphQLError("Missing start time", [info])
+
+        if end_time == "":
+            raise GraphQLError("Missing end time", [info])
 
         start_time_d = LOCAL_TZ.localize(start_time, is_dst=None)
-        end_time_d = LOCAL_TZ.localize(end_time, is_dst=None)
+        start_time_tz = start_time_d.astimezone(pytz.utc)
 
-        fixStartTime = start_time_d.astimezone(pytz.utc)
-        fixEndTime = end_time_d.astimezone(pytz.utc)
+        end_time_d = LOCAL_TZ.localize(end_time, is_dst=None)
+        end_time_tz = end_time_d.astimezone(pytz.utc)
+
+        if start_time >= end_time:
+            raise GraphQLError("Start time is after end time", [info])
+
+        overlapping_trips = Trips.objects.filter(
+            Q(Q(start_time__gt=start_time_tz) & Q(start_time__lt=end_time_tz))
+            | Q(Q(end_time__gt=start_time_tz) & Q(end_time__lt=end_time_tz))
+            | Q(Q(start_time__lte=start_time_tz) & Q(end_time__gte=end_time_tz)),
+            deleted=False,
+            partisipant=partisipant,
+        )
+
+        if overlapping_trips:
+            raise GraphQLError("Timespan overlaps with another trip", [info])
+
+        survey_day = DayInfo.objects.filter(
+            date=start_time_tz.date(), approved=False, partisipant=partisipant
+        )
+
+        if not survey_day:
+            raise GraphQLError(
+                "The trip is not set on a correct traffic survey date", [info]
+            )
 
         dt_now = datetime.today()
-        timetestVal = end_time + timedelta(days=3)
-        if dt_now > timetestVal:
+        time_limit = end_time + timedelta(days=3)
+        if dt_now > time_limit:
             raise GraphQLError("Dates can be edited only three days", [info])
 
-        partisipantObj = Partisipants.objects.get(survey_info=surveyId, device=device)
-
-        tripsObjChk = Trips.objects.filter(
-            start_time__gt=fixStartTime,
-            start_time__lt=fixEndTime,
-            deleted=False,
-            partisipant=partisipantObj,
-        )
-        tripsObjChk2 = Trips.objects.filter(
-            end_time__gt=fixStartTime,
-            end_time__lt=fixEndTime,
-            deleted=False,
-            partisipant=partisipantObj,
-        )
-        tripsObjChk3 = Trips.objects.filter(
-            start_time__lte=fixStartTime,
-            end_time__gte=fixEndTime,
-            deleted=False,
-            partisipant=partisipantObj,
+        trip = Trips(
+            partisipant=partisipant,
+            start_time=start_time_tz,
+            end_time=end_time_tz,
+            start_municipality=start_municipality,
+            end_municipality=end_municipality,
+            purpose=purpose,
         )
 
-        dayObjChk = DayInfo.objects.filter(
-            date=fixStartTime.date(), approved=False, partisipant=partisipantObj
-        )
+        trip.save()
 
-        if (
-            start_time >= end_time
-            or tripsObjChk
-            or tripsObjChk2
-            or tripsObjChk3
-            or not dayObjChk
-        ):
-            raise GraphQLError("Times are bad", [info])
-
-        tripObj = Trips()
-        tripObj.addTrip(
-            partisipantObj,
-            fixStartTime,
-            fixEndTime,
-            start_municipality,
-            end_municipality,
-            purpose,
-        )
-
-        return dict(ok=tripObj.pk)
+        return dict(ok=trip.pk)
 
 
 class AddLeg(graphene.Mutation, AuthenticatedDeviceNode):
