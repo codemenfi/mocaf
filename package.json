@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kausaltech/mocaf.git"
+    "url": "git+https://github.com/codemenfi/mocaf.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/kausaltech/mocaf/issues"
+    "url": "https://github.com/codemenfi/mocaf/issues"
   },
-  "homepage": "https://github.com/kausaltech/mocaf#readme",
+  "homepage": "https://github.com/codemenfi/mocaf#readme",
   "dependencies": {
     "topojson-server": "^3.0.1",
     "topojson-simplify": "^3.0.3"

@@ -170,6 +170,38 @@ POSTGRES_PASSWORD=abcdef
 CUBEJS_DB_PASS=qwerty
 ```
 
+### Extra steps for installation
+
+To get installation to work on windows machines, there are some steps you may need to take.
+- Make sure you have python virtual env running. Makes working with python projects more
+manageable.
+
+- When installing packages. Install pipwin with pip install. You will need pipwin on windows
+machines because pip does not have working windows version for some of the packages project is using.
+so you need to run both pipwin install to get windows specific versions for packages and pip install
+for rest of the packages.
+
+- If missing planet_osm tables. To get these tables download map package from openstreetmap.org
+ - for this map package you need to install program like Osm2pgsql that imports the data from map package to your database and creates
+ missing tables. (Links to the different programs to handle map packages can be found in https://planet.openstreetmap.org/)
+ - osm2pgsql -c -d osm -U postgres -H localhost -S C:\default.style C:\bangkok.osm.pbf (example on how to import data to database)
+ - Use downloadable extract of continent. Links found in openstreetmap.org(geofabrik downloads)
+ - https://learnosm.org/en/osm-data/osm2pgsql/
+ - Run the sql queries found in calc/sql/create_osm_views.sql
+
+- You need to install postGis extension and timescaleDB extension to your postgres database
+  - timescaleDB is 3rd party extension for postgres and need to be installed following instructions found on their website
+    timescale.com
+
+- To import data from external json data source use manage.py loaddata filename
+- Run python manage.py load_config command to import emission budget data
+ - In database on emissionbudgetlevel table column year change values to current year
+
+- For analytics you need to set mapbox accout and use mapbox access token tied to that account. Or use existing
+  one if you have one available
+- To run locally in settings.py uncomment last 2 rows with GDAL and GEOL paths
+
+
 ## TODO
 
 - Fix viterbi
