@@ -48,7 +48,6 @@ class PollLegNode(DjangoNode, AuthenticatedDeviceNode):
             "start_time",
             "end_time",
             "trip_length",
-            "carbon_footprint",
             "nr_passengers",
             "transport_mode",
             "start_loc",
@@ -431,11 +430,8 @@ class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
 class AddLeg(graphene.Mutation, AuthenticatedDeviceNode):
     class Arguments:
         trip_id = graphene.ID(required=True)
-        start_time = graphene.DateTime(required=True)
-        end_time = graphene.DateTime(required=True)
         trip_length = graphene.Float(required=False, default_value="")
         transport_mode = graphene.String(required=False, default_value="")
-        carbon_footprint = graphene.String(required=False, default_value="")
         nr_passengers = graphene.String(required=False, default_value="")
         start_loc = graphene.Argument(PointScalar, required=False, default_value="")
         end_loc = graphene.Argument(PointScalar, required=False, default_value="")
@@ -448,198 +444,38 @@ class AddLeg(graphene.Mutation, AuthenticatedDeviceNode):
         root,
         info,
         trip_id,
-        start_time,
-        end_time,
         trip_length="",
         transport_mode="",
-        carbon_footprint="",
-        nr_passengers="",
-        start_loc="",
-        end_loc="",
-    ):
-        start_time_d = LOCAL_TZ.localize(start_time, is_dst=None)
-        end_time_d = LOCAL_TZ.localize(end_time, is_dst=None)
-        fixStartTime = start_time_d.astimezone(pytz.utc)
-        fixEndTime = end_time_d.astimezone(pytz.utc)
-
-        dt_now = datetime.today()
-        timetestVal = end_time + timedelta(days=3)
-        if dt_now > timetestVal:
-            raise GraphQLError("Dates can be edited only three days", [info])
-
-        legObjChk = Legs.objects.filter(
-            start_time__gt=fixStartTime,
-            start_time__lt=fixEndTime,
-            deleted=False,
-            trip=trip_id,
-        )
-        legObjChk2 = Legs.objects.filter(
-            end_time__gt=fixStartTime,
-            end_time__lt=fixEndTime,
-            deleted=False,
-            trip=trip_id,
-        )
-        legObjChk3 = Legs.objects.filter(
-            start_time__lte=fixStartTime,
-            end_time__gte=fixEndTime,
-            deleted=False,
-            trip=trip_id,
-        )
-
-        if start_time >= end_time or legObjChk or legObjChk2 or legObjChk3:
-            raise GraphQLError("Times are bad", [info])
-
-        okVal = True
-
-        try:
-            with transaction.atomic():
-                tripObj = Trips.objects.get(pk=trip_id)
-
-                if tripObj.approved == True:
-                    raise GraphQLError("Trip is allready approved", [info])
-                elif tripObj.deleted == True:
-                    raise GraphQLError("Trip is deleted", [info])
-
-                dayChk = DayInfo.objects.filter(
-                    date=fixStartTime.date(),
-                    approved=False,
-                    partisipant=tripObj.partisipant,
-                )
-
-                if not dayChk:
-                    raise GraphQLError("Start day is bad", [info])
-
-                legsObj = Legs()
-
-                legsObj.trip = tripObj
-                legsObj.start_time = fixStartTime
-                legsObj.end_time = fixEndTime
-
-                if trip_length != "":
-                    legsObj.trip_length = trip_length
-
-                if transport_mode != "":
-                    legsObj.transport_mode = transport_mode
-
-                if carbon_footprint != "":
-                    legsObj.carbon_footprint = carbon_footprint
-
-                if nr_passengers != "":
-                    legsObj.nr_passengers = nr_passengers
-
-                legsObj.original_leg = False
-
-                if start_loc != "":
-                    legsObj.start_loc = PointModelType(start_loc)
-
-                if end_loc != "":
-                    legsObj.end_loc = PointModelType(end_loc)
-
-                legsObj.save()
-
-                tripObjChange = False
-
-                if fixStartTime < tripObj.start_time:
-                    tripObj.start_time = fixStartTime
-                    tripObjChange = True
-
-                if fixEndTime > tripObj.end_time:
-                    tripObj.end_time = fixEndTime
-                    tripObjChange = True
-
-                if tripObjChange:
-                    tripObj.save()
-
-        except DatabaseError:
-            okVal = False
-
-        return dict(ok=okVal)
-
-
-class EditLeg(graphene.Mutation, AuthenticatedDeviceNode):
-    class Arguments:
-        leg_id = graphene.ID(required=True)
-        start_time = graphene.DateTime(required=True)
-        end_time = graphene.DateTime(required=True)
-        trip_length = graphene.Float(required=False, default_value="")
-        transport_mode = graphene.String(required=False, default_value="")
-        carbon_footprint = graphene.String(required=False, default_value="")
-        nr_passengers = graphene.String(required=False, default_value="")
-        start_loc = graphene.Argument(PointScalar, required=False, default_value="")
-        end_loc = graphene.Argument(PointScalar, required=False, default_value="")
-
-    ok = graphene.Boolean()
-    leg = graphene.Field(PollLegNode)
-
-    @classmethod
-    def mutate(
-        cls,
-        root,
-        info,
-        leg_id,
-        start_time,
-        end_time,
-        trip_length="",
-        transport_mode="",
-        carbon_footprint="",
         nr_passengers="",
         start_loc="",
         end_loc="",
     ):
         try:
-            leg = Legs.objects.get(pk=leg_id)
-        except Legs.DoesNotExist:
-            raise GraphQLError("Leg does not exist", [info])
-
-        start_time_d = LOCAL_TZ.localize(start_time, is_dst=None)
-        end_time_d = LOCAL_TZ.localize(end_time, is_dst=None)
-        utc_start_time = start_time_d.astimezone(pytz.utc)
-        utc_end_time = end_time_d.astimezone(pytz.utc)
-
-        dt_now = datetime.today()
-        end_time_limit = end_time + timedelta(days=3)
-        if dt_now > end_time_limit:
-            raise GraphQLError("Dates can be edited only three days", [info])
-
-        overlapping_legs = Legs.objects.filter(
-            Q(Q(start_time__gt=utc_start_time) & Q(start_time__lt=utc_end_time))
-            | Q(Q(end_time__gt=utc_start_time) & Q(end_time__lt=utc_end_time))
-            | Q(Q(start_time__lte=utc_start_time) & Q(end_time__gte=utc_end_time)),
-            deleted=False,
-            trip=leg.trip,
-        ).exclude(pk=leg_id)
-
-        if start_time >= end_time or overlapping_legs:
-            raise GraphQLError("Times are bad", [info])
-
-        try:
             with transaction.atomic():
-                if leg.trip.approved == True:
-                    raise GraphQLError("Trip is allready approved", [info])
-                elif leg.trip.deleted == True:
-                    raise GraphQLError("Trip is deleted", [info])
+                trip = Trips.objects.get(pk=trip_id)
 
-                poll_day = DayInfo.objects.filter(
-                    date=utc_start_time.date(),
-                    approved=False,
-                    partisipant=leg.trip.partisipant,
-                )
+                if trip.approved == True:
+                    raise GraphQLError("Trip has allready been approved", [info])
+                elif trip.deleted == True:
+                    raise GraphQLError("Trip has been deleted", [info])
 
-                if not poll_day:
-                    raise GraphQLError("Start day is invalid", [info])
+                leg = Legs()
+                leg.trip = trip
 
-                # legsObj.trip = tripObj
-                leg.start_time = utc_start_time
-                leg.end_time = utc_end_time
+                # Set the start and end times automatically for now
+                previous_leg = trip.last_leg()
+                if previous_leg:
+                    leg.start_time = previous_leg.end_time
+                    leg.end_time = previous_leg.end_time + timedelta(minutes=1)
+                else:
+                    leg.start_time = trip.start_time
+                    leg.end_time = trip.start_time + timedelta(minutes=1)
 
                 if trip_length != "":
                     leg.trip_length = trip_length
 
                 if transport_mode != "":
                     leg.transport_mode = transport_mode
-
-                if carbon_footprint != "":
-                    leg.carbon_footprint = carbon_footprint
 
                 if nr_passengers != "":
                     leg.nr_passengers = nr_passengers
@@ -654,18 +490,66 @@ class EditLeg(graphene.Mutation, AuthenticatedDeviceNode):
 
                 leg.save()
 
-                trip_changed = False
+        except DatabaseError:
+            return dict(ok=False)
 
-                if utc_start_time < leg.trip.start_time:
-                    leg.trip.start_time = utc_start_time
-                    trip_changed = True
+        return dict(ok=True)
 
-                if utc_end_time > leg.trip.end_time:
-                    leg.trip.end_time = utc_end_time
-                    trip_changed = True
 
-                if trip_changed:
-                    leg.trip.save()
+class EditLeg(graphene.Mutation, AuthenticatedDeviceNode):
+    class Arguments:
+        leg_id = graphene.ID(required=True)
+        trip_length = graphene.Float(required=False, default_value="")
+        transport_mode = graphene.String(required=False, default_value="")
+        nr_passengers = graphene.String(required=False, default_value="")
+        start_loc = graphene.Argument(PointScalar, required=False, default_value="")
+        end_loc = graphene.Argument(PointScalar, required=False, default_value="")
+
+    ok = graphene.Boolean()
+    leg = graphene.Field(PollLegNode)
+
+    @classmethod
+    def mutate(
+        cls,
+        root,
+        info,
+        leg_id,
+        trip_length="",
+        transport_mode="",
+        nr_passengers="",
+        start_loc="",
+        end_loc="",
+    ):
+        try:
+            leg = Legs.objects.get(pk=leg_id)
+        except Legs.DoesNotExist:
+            raise GraphQLError("Leg does not exist", [info])
+
+        try:
+            with transaction.atomic():
+                if leg.trip.approved == True:
+                    raise GraphQLError("Trip is allready approved", [info])
+                elif leg.trip.deleted == True:
+                    raise GraphQLError("Trip is deleted", [info])
+
+                if trip_length != "":
+                    leg.trip_length = trip_length
+
+                if transport_mode != "":
+                    leg.transport_mode = transport_mode
+
+                if nr_passengers != "":
+                    leg.nr_passengers = nr_passengers
+
+                leg.original_leg = False
+
+                if start_loc != "":
+                    leg.start_loc = PointModelType(start_loc)
+
+                if end_loc != "":
+                    leg.end_loc = PointModelType(end_loc)
+
+                leg.save()
 
         except DatabaseError:
             return dict(ok=False, leg=leg)
@@ -696,7 +580,6 @@ class AddLegs(graphene.Mutation, AuthenticatedDeviceNode):
 
             trip_length = ""
             transport_mode = ""
-            carbon_footprint = ""
             nr_passengers = ""
             start_loc = ""
             end_loc = ""
@@ -705,8 +588,6 @@ class AddLegs(graphene.Mutation, AuthenticatedDeviceNode):
                 trip_length = float(i.get("tripLength"))
             if i.get("transportMode"):
                 transport_mode = i.get("transportMode")
-            if i.get("carbonFootprint"):
-                carbon_footprint = i.get("carbonFootprint")
             if i.get("nrPassengers"):
                 nr_passengers = i.get("nrPassengers")
             if i.get("startLoc"):
@@ -777,9 +658,6 @@ class AddLegs(graphene.Mutation, AuthenticatedDeviceNode):
 
                     if transport_mode != "":
                         legsObj.transport_mode = transport_mode
-
-                    if carbon_footprint != "":
-                        legsObj.carbon_footprint = carbon_footprint
 
                     if nr_passengers != "":
                         legsObj.nr_passengers = nr_passengers
@@ -1132,121 +1010,109 @@ class EditTrip(graphene.Mutation, AuthenticatedDeviceNode):
     ):
         device = info.context.device
 
-        partisipantObj = Partisipants.objects.get(survey_info=surveyId, device=device)
+        partisipant = Partisipants.objects.get(survey_info=surveyId, device=device)
 
-        fixStartTime = ""
-        fixEndTime = ""
+        if start_time == "":
+            raise GraphQLError("Missing start time", [info])
 
-        if start_time != "" and end_time != "":
-            start_time_d = LOCAL_TZ.localize(start_time, is_dst=None)
-            fixStartTime = start_time_d.astimezone(pytz.utc)
+        if end_time == "":
+            raise GraphQLError("Missing end time", [info])
 
-            end_time_d = LOCAL_TZ.localize(end_time, is_dst=None)
-            fixEndTime = end_time_d.astimezone(pytz.utc)
+        start_time_d = LOCAL_TZ.localize(start_time, is_dst=None)
+        start_time_tz = start_time_d.astimezone(pytz.utc)
 
-            tripsObjChk = Trips.objects.filter(
-                ~Q(pk=trip_id),
-                start_time__gt=fixStartTime,
-                start_time__lt=fixEndTime,
-                deleted=False,
-                partisipant=partisipantObj,
+        end_time_d = LOCAL_TZ.localize(end_time, is_dst=None)
+        end_time_tz = end_time_d.astimezone(pytz.utc)
+
+        if start_time >= end_time:
+            raise GraphQLError("Start time is after end time", [info])
+
+        overlapping_trips = Trips.objects.filter(
+            ~Q(pk=trip_id),
+            Q(Q(start_time__gt=start_time_tz) & Q(start_time__lt=end_time_tz))
+            | Q(Q(end_time__gt=start_time_tz) & Q(end_time__lt=end_time_tz))
+            | Q(Q(start_time__lte=start_time_tz) & Q(end_time__gte=end_time_tz)),
+            deleted=False,
+            partisipant=partisipant,
+        )
+
+        if overlapping_trips:
+            raise GraphQLError("Timespan overlaps with another trip", [info])
+
+        survey_day = DayInfo.objects.filter(
+            date=start_time_tz.date(), approved=False, partisipant=partisipant
+        )
+
+        if not survey_day:
+            raise GraphQLError(
+                "The trip is not set on a correct traffic survey date", [info]
             )
-            tripsObjChk2 = Trips.objects.filter(
-                ~Q(pk=trip_id),
-                end_time__gt=fixStartTime,
-                end_time__lt=fixEndTime,
-                deleted=False,
-                partisipant=partisipantObj,
-            )
-            tripsObjChk3 = Trips.objects.filter(
-                ~Q(pk=trip_id),
-                start_time__lte=fixStartTime,
-                end_time__gte=fixEndTime,
-                deleted=False,
-                partisipant=partisipantObj,
-            )
-
-            dayObjChk = DayInfo.objects.filter(
-                date=fixStartTime.date(), approved=False, partisipant=partisipantObj
-            )
-
-            if (
-                start_time >= end_time
-                or tripsObjChk
-                or tripsObjChk2
-                or tripsObjChk3
-                or not dayObjChk
-            ):
-                raise GraphQLError("Times are bad", [info])
-
-        elif end_time != "" or start_time != "":
-            raise GraphQLError("Both times are needed", [info])
 
         okVal = True
 
-        tripObj = Trips.objects.get(partisipant=partisipantObj, pk=trip_id)
+        trip = Trips.objects.get(partisipant=partisipant, pk=trip_id)
 
         dt_now = LOCAL_TZ.localize(datetime.today())
-        timetestVal = tripObj.end_time + timedelta(days=3)
+        timetestVal = trip.end_time + timedelta(days=3)
         if dt_now > timetestVal:
             raise GraphQLError("Dates can be edited only three days", [info])
 
         if approved != "" and approved == True:
-            if tripObj.purpose == "" and purpose == "":
+            if trip.purpose == "" and purpose == "":
                 raise GraphQLError("Trip needs purpose", [info])
 
-            legsObj = Legs.objects.filter(trip=trip_id)
-            if not legsObj:
+            legs = Legs.objects.filter(trip=trip_id)
+            if not legs:
                 raise GraphQLError("Trip has no legs", [info])
 
-        if (approved == "" or approved == True) and tripObj.approved == True:
-            raise GraphQLError("Trip is allready approved", [info])
-        elif tripObj.deleted == True:
+        if (approved == "" or approved == True) and trip.approved == True:
+            raise GraphQLError("Trip is already approved", [info])
+        elif trip.deleted == True:
             raise GraphQLError("Trip is deleted", [info])
 
-        if tripObj.original_trip == False or (fixStartTime == "" and fixEndTime == ""):
-            if fixStartTime != "":
-                tripObj.start_time = fixStartTime
-            if fixEndTime != "":
-                tripObj.end_time = fixEndTime
+        if trip.original_trip == False or (start_time_tz == "" and end_time_tz == ""):
+            if start_time_tz != "":
+                trip.start_time = start_time_tz
+            if end_time_tz != "":
+                trip.end_time = end_time_tz
             if purpose != "":
-                tripObj.purpose = purpose
+                trip.purpose = purpose
             if start_municipality != "":
-                tripObj.start_municipality = start_municipality
+                trip.start_municipality = start_municipality
             if end_municipality != "":
-                tripObj.end_municipality = end_municipality
+                trip.end_municipality = end_municipality
             if approved != "":
-                tripObj.approved = approved
-            tripObj.save()
+                trip.approved = approved
+            trip.save()
         else:
-            newTripObj = Trips()
+            new_trip = Trips()
 
-            newTripObj.original_trip = False
-            newTripObj.partisipant = tripObj.partisipant
-            newTripObj.start_time = tripObj.start_time
-            newTripObj.end_time = tripObj.end_time
-            newTripObj.purpose = tripObj.purpose
-            newTripObj.start_municipality = tripObj.start_municipality
-            newTripObj.end_municipality = tripObj.end_municipality
+            new_trip.original_trip = False
+            new_trip.partisipant = trip.partisipant
+            new_trip.start_time = trip.start_time
+            new_trip.end_time = trip.end_time
+            new_trip.purpose = trip.purpose
+            new_trip.start_municipality = trip.start_municipality
+            new_trip.end_municipality = trip.end_municipality
 
-            if fixStartTime != "":
-                newTripObj.start_time = fixStartTime
-            if fixEndTime != "":
-                newTripObj.end_time = fixEndTime
+            if start_time_tz != "":
+                new_trip.start_time = start_time_tz
+            if end_time_tz != "":
+                new_trip.end_time = end_time_tz
             if purpose != "":
-                newTripObj.purpose = purpose
+                new_trip.purpose = purpose
             if start_municipality != "":
-                newTripObj.start_municipality = start_municipality
+                new_trip.start_municipality = start_municipality
             if end_municipality != "":
-                newTripObj.end_municipality = end_municipality
+                new_trip.end_municipality = end_municipality
             if approved != "":
-                newTripObj.approved = approved
+                new_trip.approved = approved
 
-            newTripObj.save()
+            new_trip.save()
 
-            legsObj = Legs.objects.filter(trip=trip_id)
-            legsObj.update(trip=newTripObj)
-            tripObj.deleteTrip()
+            legs = Legs.objects.filter(trip=trip_id)
+            legs.update(trip=new_trip)
+            trip.deleteTrip()
 
         return dict(ok=okVal)
 

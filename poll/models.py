@@ -218,6 +218,19 @@ class Trips(models.Model):
     def getendMunicipalityVal(self):
         return self.get_end_municipality_display()
 
+    def get_update_end_time(self):
+        return self.start_time + timedelta(days=3)
+
+    @property
+    def length(self) -> float:
+        length = 0
+        for leg in self.legs_set.all():
+            length += leg.trip_length
+        return length
+
+    def last_leg(self):
+        return self.legs_set.order_by("-end_time").first()
+
     class Meta:
         constraints = [
             models.CheckConstraint(
@@ -263,6 +276,9 @@ class Legs(models.Model):
             self.delete()
 
         return True
+
+    def can_user_update(self) -> bool:
+        return timezone.now() < self.trip.get_update_end_time()
 
 
 class LegsLocationQuerySet(models.QuerySet):
