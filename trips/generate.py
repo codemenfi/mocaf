@@ -197,7 +197,10 @@ class TripGenerator:
         lat = pnt.y
         lon = pnt.x
         coord_link = "https://nominatim.openstreetmap.org/reverse?format=json&lat=" +  str(lat) + "&lon=" +  str(lon) + "&zoom=10&addressdetails=10"
-        request_json = requests.get(coord_link).json()
+        headers = {
+            "User-Agent": "mocaf"
+        }
+        request_json = requests.get(coord_link, headers=headers).json()
 
         towndict = {"Tampere": "Tampere", "Kangasala": "Kangasala", "Pirkkala": "Pirkkala", 
                     "Nokia": "Nokia", "Ylöjärvi": "Ylojarvi", "Lempäälä": "Lempaala", 
