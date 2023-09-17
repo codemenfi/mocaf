@@ -67,6 +67,17 @@ class TripGenerator:
             'train': transport_modes['train'],
         }
 
+        self.atype_to_survey_mode = {
+            'walking': 'walk',
+            'on_foot': 'walk',
+            'in_vehicle': 'car_driver',
+            'running': 'walk',
+            'on_bicycle': 'bicycle',
+            'bus': 'bus',
+            'tram': 'tram',
+            'train': 'train',
+        }
+
     def insert_leg_locations(self, rows):
         # Having "None" as the speed column is a periodically recurring
         # issue. Raise error to continue with other uuids if None found
@@ -166,7 +177,7 @@ class TripGenerator:
         # Ensure trips are ordered properly
         assert start.time >= last_ts and end.time >= last_ts
 
-        mode = self.atype_to_mode[df.iloc[0].atype]
+        mode = self.atype_to_survey_mode[df.iloc[0].atype]
 
         leg = Legs(
             trip_id=trip.id,
