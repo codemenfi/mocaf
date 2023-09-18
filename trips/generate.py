@@ -270,73 +270,61 @@ class TripGenerator:
                 logger.info('Trips have user corrected elements, not deleting')
                 return
 
+        # TODO: delete survey trips
         count = device.trips.filter(legs__in=legs).delete()
         pc.display('deleted')
 
-        last_ts = df.time.min()
-
         # Create trips
-        all_rows = []
-        all_rows_survey = []
         survey_enabled = Device.objects.get(uuid=uuid).survey_enabled
         mocaf_enabled = Device.objects.get(uuid=uuid).mocaf_enabled
-        device_id = Device.objects.get(uuid=uuid).id
-        partisipant = Partisipants.objects.filter(device=device_id).first()
-        if (partisipant == None):
-            partisipant_id = None
-        else:
-            partisipant_id = partisipant.id
-        if (survey_enabled == True and mocaf_enabled == True ):
+
+        if mocaf_enabled:
+            all_rows = []
             trip = Trip(device=device)
-            survey_trip = Trips(start_time=min_time, end_time=max_time, partisipant_id=partisipant_id)
-        elif(survey_enabled == True):
-            trip = Trips(start_time=min_time, end_time=max_time, partisipant_id=partisipant_id)
-        else:
-            trip = Trip(device=device)
-        if (survey_enabled == True and mocaf_enabled == True):
-            survey_trip.save()
-        trip.save()
-        pc.display('trip %d saved' % trip.id)
+            trip.save()
+            pc.display('trip %d saved' % trip.id)
 
-        firstLeg = True
-        leg_ids = df.leg_id.unique()
-        for leg_id in leg_ids:
-            leg_df = df[df.leg_id == leg_id]
+            leg_ids = df.leg_id.unique()
+            last_ts = df.time.min()
+            for leg_id in leg_ids:
+                leg_df = df[df.leg_id == leg_id]
 
-            if survey_enabled == True  and firstLeg:
-                firstLeg = False
-                self.save_survey_trip_town(trip, leg_df, True)
-
-            if(survey_enabled == True and mocaf_enabled == True ):
-                leg_rows, last_ts = self.save_leg(trip, leg_df, last_ts, default_variants, pc)
-                all_rows += leg_rows
-                last_ts = df.time.min()
-                leg_rows_survey, last_ts = self.save_survey_leg(survey_trip, leg_df, last_ts, pc)
-                all_rows_survey += leg_rows_survey
-            elif(survey_enabled == True):
-                leg_rows, last_ts = self.save_survey_leg(trip, leg_df, last_ts, pc)
-                all_rows += leg_rows
-            else:   
                 leg_rows, last_ts = self.save_leg(trip, leg_df, last_ts, default_variants, pc)
                 all_rows += leg_rows
 
-        if survey_enabled == True and not firstLeg:
-            firstLeg = False
-            self.save_survey_trip_town(trip, leg_df, False)
-
-        pc.display('generated %d legs' % len(leg_ids))
-        if(survey_enabled == True and mocaf_enabled == True ):
+            pc.display('generated %d legs' % len(leg_ids))
             self.insert_leg_locations(all_rows)
-            self.insert_survey_leg_locations(all_rows_survey)
-        elif(survey_enabled == True):
-            self.insert_survey_leg_locations(all_rows)
-        else:
-            self.insert_leg_locations(all_rows)
-        
-        if (survey_enabled != True or (survey_enabled == True and mocaf_enabled == True)):
             pc.display('updating carbon footprint')
             trip.update_device_carbon_footprint()
-        pc.display('trip %d save done' % trip.id)
+            pc.display('trip %d save done' % trip.id)
+            
+        partisipant = Partisipants.objects.filter(device=device).first()
+        if survey_enabled and partisipant:
+            all_rows_survey = []
+            survey_trip = Trips(start_time=min_time, end_time=max_time, partisipant_id=partisipant.id)
+            survey_trip.save()
+            pc.display('survey trip %d saved' % survey_trip.id)
+            first_leg = True
+            leg_ids = df.leg_id.unique()
+            leg_df = None
+            last_ts = df.time.min()
+            for leg_id in leg_ids:
+                leg_df = df[df.leg_id == leg_id]
+
+                if first_leg:
+                    first_leg = False
+                    self.save_survey_trip_town(survey_trip, leg_df, True)
+
+                leg_rows_survey, last_ts = self.save_survey_leg(survey_trip, leg_df, last_ts, pc)
+                all_rows_survey += leg_rows_survey
+
+            if not first_leg and leg_df is not None:
+                self.save_survey_trip_town(survey_trip, leg_df, False)
+
+            pc.display('generated %d survey legs' % len(leg_ids))
+            self.insert_survey_leg_locations(all_rows_survey)
+            pc.display('survey trip %d save done' % survey_trip.id)
+
 
     def begin(self):
         transaction.set_autocommit(False)

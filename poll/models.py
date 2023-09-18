@@ -281,6 +281,17 @@ class Legs(models.Model):
         return timezone.now() < self.trip.get_update_end_time()
 
 
+    def __str__(self):
+        duration = (self.end_time - self.start_time).total_seconds() / 60
+        deleted = 'DELETED ' if self.deleted else ''
+        mode_str = self.transport_mode
+
+        start_time = self.start_time.astimezone(LOCAL_TZ)
+
+        return '%sLeg [%s]: Started at %s (duration %.1f min), length %.1f km' % (
+            deleted, mode_str, start_time, duration, self.trip_length / 1000
+        )
+
 class LegsLocationQuerySet(models.QuerySet):
     def _get_expired_query(self):
         now = timezone.now()
