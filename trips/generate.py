@@ -18,7 +18,7 @@ from django.utils import timezone
 from psycopg2.extras import execute_values
 from trips.models import Device, TransportMode, Trip, Leg, LegLocation
 from trips_ingest.models import Location
-from poll.models import Trips, Legs, LegsLocation, Partisipants
+from poll.models import MUNICIPALITY_CHOICES, MUNICIPALITY_OTHER, Trips, Legs, LegsLocation, Partisipants
 
 
 logger = logging.getLogger(__name__)
@@ -213,17 +213,18 @@ class TripGenerator:
         }
         request_json = requests.get(coord_link, headers=headers).json()
 
-        towndict = {"Tampere": "Tampere", "Kangasala": "Kangasala", "Pirkkala": "Pirkkala", 
-                    "Nokia": "Nokia", "Ylöjärvi": "Ylojarvi", "Lempäälä": "Lempaala", 
-                    "Vesilahti": "Vesilahti", "Orivesi": "Orivesi"}
+        # towndict = {"Tampere": "Tampere", "Kangasala": "Kangasala", "Pirkkala": "Pirkkala", 
+        #             "Nokia": "Nokia", "Ylöjärvi": "Ylojarvi", "Lempäälä": "Lempaala", 
+        #             "Vesilahti": "Vesilahti", "Orivesi": "Orivesi"}
 
-        town = "muu"
+        town = MUNICIPALITY_OTHER
 
         if request_json.get("name"):
             start_town = request_json.get("name")
 
-            if towndict.get(start_town):
-                town = towndict.get(start_town)
+            municipalities = [x[0] for x in MUNICIPALITY_CHOICES]
+            if start_town in municipalities:
+                town = start_town
 
         if starttown:
             tripObj.start_municipality = town

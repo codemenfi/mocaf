@@ -131,7 +131,7 @@ class Lottery(models.Model):
 
 
 TRAVEL_TO_WORK_TRIP = "travel_to_work_trip"
-BUSINESS_TRIP = "travel_to_work_trip"
+BUSINESS_TRIP = "business_trip"
 SCHOOL_TRIP = "school_trip"
 LEISURE_TRIP = "leisure_trip"
 SHOPPING_TRIP = "shopping_trip"
@@ -148,6 +148,20 @@ TRIP_PURPOSE_CHOICES = (
     (PASSENGER_TRANSPORT_TRIP, "Kyyditseminen"),
     ("tyhja", "Tyhjä"),
 )
+
+MUNICIPALITY_CHOICES = (
+    ("Tampere", "Tampere"),
+    ("Kangasala", "Kangasala"),
+    ("Lempäälä", "Lempäälä"),
+    ("Nokia", "Nokia"),
+    ("Orivesi", "Orivesi"),
+    ("Pirkkala", "Pirkkala"),
+    ("Vesilahti", "Vesilahti"),
+    ("Ylöjärvi", "Ylöjärvi"),
+    ("Muu", "Muu"),
+)
+
+MUNICIPALITY_OTHER = "Muu"
 
 
 class Trips(models.Model):
@@ -171,14 +185,14 @@ class Trips(models.Model):
 
     start_municipality = models.CharField(
         max_length=20,
-        default=Municipality_choice("Tampere").value,
-        choices=[(tag, tag.value) for tag in Municipality_choice],
+        default="Tampere",
+        choices=MUNICIPALITY_CHOICES,
     )
 
     end_municipality = models.CharField(
         max_length=20,
-        default=Municipality_choice("Tampere").value,
-        choices=[(tag, tag.value) for tag in Municipality_choice],
+        default="Tampere",
+        choices=MUNICIPALITY_CHOICES,
     )
 
     def deleteTrip(self):
@@ -237,14 +251,15 @@ class Trips(models.Model):
                 name="purpose",
                 check=models.Q(purpose__in=[t[0] for t in TRIP_PURPOSE_CHOICES]),
             ),
-            models.CheckConstraint(
-                name="startmunicipality",
-                check=models.Q(start_municipality__in=Municipality_choice._member_map_),
-            ),
-            models.CheckConstraint(
-                name="endmunicipality",
-                check=models.Q(end_municipality__in=Municipality_choice._member_map_),
-            ),
+            # Contstraint for now because of unicode errors
+            # models.CheckConstraint(
+            #     name="startmunicipality",
+            #     check=models.Q(start_municipality__in=[t[0] for t in MUNICIPALITY_CHOICES]),
+            # ),
+            # models.CheckConstraint(
+            #     name="endmunicipality",
+            #     check=models.Q(end_municipality__in=[t[0] for t in MUNICIPALITY_CHOICES]),
+            # ),
         ]
 
 
