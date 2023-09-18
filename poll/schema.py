@@ -345,12 +345,12 @@ class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
         start_municipality = graphene.String(
             required=False,
             default_value="Tampere",
-            description="Tampere, Kangasala, Lempaala, Nokia, Orivesi, Pirkkala, Vesilahti, Ylojarvi, muu",
+            description="Tampere, Kangasala, Lempäälä, Nokia, Orivesi, Pirkkala, Vesilahti, Ylöjärvi, Muu",
         )
         end_municipality = graphene.String(
             required=False,
             default_value="Tampere",
-            description="Tampere, Kangasala, Lempaala, Nokia, Orivesi, Pirkkala, Vesilahti, Ylojarvi, muu",
+            description="Tampere, Kangasala, Lempäälä, Nokia, Orivesi, Pirkkala, Vesilahti, Ylöjärvi, Muu",
         )
 
     ok = graphene.ID()
@@ -980,12 +980,12 @@ class EditTrip(graphene.Mutation, AuthenticatedDeviceNode):
         start_municipality = graphene.String(
             required=False,
             default_value="",
-            description="Tampere, Kangasala, Lempaala, Nokia, Orivesi, Pirkkala, Vesilahti, Ylojarvi, muu",
+            description="Tampere, Kangasala, Lempäälä, Nokia, Orivesi, Pirkkala, Vesilahti, Ylöjärvi, Muu",
         )
         end_municipality = graphene.String(
             required=False,
             default_value="",
-            description="Tampere, Kangasala, Lempaala, Nokia, Orivesi, Pirkkala, Vesilahti, Ylojarvi, muu",
+            description="Tampere, Kangasala, Lempäälä, Nokia, Orivesi, Pirkkala, Vesilahti, Ylöjärvi, Muu",
         )
         approved = graphene.Boolean(required=False, default_value="")
 
