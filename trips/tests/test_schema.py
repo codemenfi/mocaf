@@ -644,7 +644,7 @@ def test_add_trip(graphql_client_query_data, uuid, token, partisipants, day_info
         """
         mutation($uuid: String!, $token: String!)
         @device(uuid: $uuid, token: $token) {
-           pollAddTrip(startTime: "2023-07-15T10:59:40", endTime: "2023-07-15T11:59:45", surveyId: 2) {
+            pollAddTrip(startTime: "2023-07-15T10:59:40", endTime: "2023-07-15T11:59:45", surveyId: 2, purpose: "business_trip") {
             ok
             }
         }
