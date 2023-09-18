@@ -615,8 +615,9 @@ class NoTripsTask(NotificationTask):
                          .filter(~Q(survey_enabled=True))
                          .values('id'))
         
+        no_trips = Q(trips__start_time__gte=F("registered_to_survey_at")) & Q(trips__deleted=False)
         has_survey_trips = (Partisipants.objects
-                            .filter(trips__legs__start_time__gte=F("registered_to_survey_at"))
+                            .filter(no_trips)
                             .values('device'))
 
         return (super().recipients()

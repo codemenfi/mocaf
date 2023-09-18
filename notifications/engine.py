@@ -1,10 +1,12 @@
 from typing import Any, Dict, List, Optional
 from django.conf import settings
+import pytz
 
 from mocaf.geniem_api import GeniemApi
 from trips.models import Device
 import datetime
 
+LOCAL_TZ = pytz.timezone(settings.TIME_ZONE)
 
 class NotificationEngine(GeniemApi):
     identifier = 'geniem'
@@ -19,7 +21,6 @@ class NotificationEngine(GeniemApi):
     def send_notification(self, devices: List[Device], title: Dict[str, str], content: Dict[str, str], event_type: str, action_type: str, extra_data: Optional[Dict[str, Any]] = None):
         title_data = {'title%s' % lang.capitalize(): val for lang, val in title.items()}
         content_data = {'content%s' % lang.capitalize(): val for lang, val in content.items()}
-        timezone = datetime.timezone
 
         if not extra_data:
             extra_data = {}
@@ -34,11 +35,11 @@ class NotificationEngine(GeniemApi):
         if action_type:
             current_day = datetime.date.today()
             expire_time = datetime.time(hour=23, minute=59, second=59)
-            expires = datetime.datetime.combine(current_day, expire_time, timezone)
+            expires = datetime.datetime.combine(current_day, expire_time, LOCAL_TZ)
             data = {
                 **data,
                 'actionType': action_type,
-                'actionExpiresAt': expires,
+                'actionExpiresAt': expires.isoformat(),
             }
 
         if 'survey' in event_type:
