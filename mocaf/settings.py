@@ -142,22 +142,22 @@ CELERY_BEAT_SCHEDULE = {
             'expires': 18 * 60 * 60,  # 18 hours
         }
     },
-    #  'send-no-trips-notifications': {
-    #    'task': 'notifications.tasks.send_notifications',
-    #    'args': ('notifications.tasks.NoTripsNotificationTask',),
-    #    'schedule': crontab(hour=10, minute=0),
-    #    'options': {
-    #        'expires': 2 * 24 * 60 * 60,  #  2 days
-    #    }
-    #},
-    # 'send-survey-end-notifications': {
-    #    'task': 'notifications.tasks.send_notifications',
-    #    'args': ('notifications.tasks.SurveyEndNotificationTask',),
-    #    'schedule': crontab(hour=10, minute=0),
-    #    'options': {
-    #        'expires': 23 * 60 * 60,  #  23 hours
-    #    }
-    #},
+     'send-no-trips-notifications': {
+       'task': 'notifications.tasks.send_notifications',
+       'args': ('notifications.tasks.NoTripsNotificationTask',),
+       'schedule': crontab(hour=15, minute=0),
+       'options': {
+           'expires': 2 * 24 * 60 * 60,  #  2 days
+       }
+    },
+    'send-survey-end-notifications': {
+       'task': 'notifications.tasks.send_notifications',
+       'args': ('notifications.tasks.SurveyEndNotificationTask',),
+       'schedule': crontab(hour=15, minute=0),
+       'options': {
+           'expires': 23 * 60 * 60,  #  23 hours
+       }
+    },
     # 'send-survey-start-notifications': {
     #   'task': 'notifications.tasks.send_notifications',
     #    'args': ('notifications.tasks.SurveyStartNotificationTask',),
@@ -165,15 +165,15 @@ CELERY_BEAT_SCHEDULE = {
     #    'options': {
     #        'expires':  23 * 60 * 60,  #  23 hours
     #    }
-    #},
-    #'send-reminder-notifications': {
-    #    'task': 'notifications.tasks.send_notifications',
-    #    'args': ('notifications.tasks.ReminderNotificationTask',),
-    #    'schedule': crontab(hour=18, minute=0),
-    #    'options': {
-    #        'expires':  23 * 60 * 60,  #  23 hours
-    #    }
-    #},
+    # },
+    'send-reminder-notifications': {
+       'task': 'notifications.tasks.send_notifications',
+       'args': ('notifications.tasks.ReminderNotificationTask',),
+       'schedule': crontab(hour=16, minute=0),
+       'options': {
+           'expires':  23 * 60 * 60,  #  23 hours
+       }
+    },
     # TODO: Update the following.
     # 'send-welcome-notifications': {
     #     'task': 'notifications.tasks.send_notifications',
@@ -456,18 +456,19 @@ if 'DATABASES' in locals():
 PROMETHEUS_METRICS_AUTH_TOKEN = env('PROMETHEUS_METRICS_AUTH_TOKEN')
 #to run local db change values to match your db or can use local_settings with said values
 
-DATABASES = {
-    'default': {
-        'ATOMIC_REQUESTS': True,
-        'CONN_MAX_AGE': 600,
-        'ENGINE': 'django.contrib.gis.db.backends.postgis',
-        'HOST': 'db',
-        'NAME': env('POSTGRES_DB'),
-        'PASSWORD': env('POSTGRES_PASSWORD'),
-        'PORT': '',
-        'USER': 'mocaf'
+if not locals().get('DATABASES', ''):
+    DATABASES = {
+        'default': {
+            'ATOMIC_REQUESTS': True,
+            'CONN_MAX_AGE': 600,
+            'ENGINE': 'django.contrib.gis.db.backends.postgis',
+            'HOST': 'db',
+            'NAME': env('POSTGRES_DB'),
+            'PASSWORD': env('POSTGRES_PASSWORD'),
+            'PORT': '',
+            'USER': 'mocaf'
+        }
     }
-}
 
 #GDAL_LIBRARY_PATH=os.getenv('GDAL_LIB_PATH') #needed to run locally
 #GEOS_LIBRARY_PATH=os.getenv('GEOS_LIB_PATH') #needed to run locally

@@ -609,22 +609,19 @@ class NoTripsTask(NotificationTask):
         """Return devices that have not had any trips between 2 days after register."""
         already_notified_devices = (NotificationLogEntry.objects
                                     .filter(template__event_type=self.event_type)
-                                    .filter(sent_at__lte=F("poll_partisipants__registered_to_survey_at" + datetime.timedelta(days=2)))
+                                    .filter(sent_at__gte=self.now - datetime.timedelta(days=2))
                                     .values('device'))
         not_in_survey = (Device.objects
                          .filter(~Q(survey_enabled=True))
                          .values('id'))
         
         has_survey_trips = (Partisipants.objects
-                            .filter(poll_trips__poll_legs__start_time__gte=F("registered_to_survey_at"))
+                            .filter(trips__legs__start_time__gte=F("registered_to_survey_at"))
                             .values('device'))
-        has_trips = (Partisipants.objects
-                    .filter(trips__legs__start_time__gte=F("registered_to_survey_at"))
-                    .values('device'))
+
         return (super().recipients()
                 .exclude(id__in=has_survey_trips)
                 .exclude(id__in=already_notified_devices)
-                .exclude(id__in=has_trips)
                 .exclude(id__in=not_in_survey))
 
 @register_for_management_command
@@ -636,25 +633,26 @@ class SurveyEndNotificationTask(NotificationTask):
         already_notified_devices = (NotificationLogEntry.objects
                                     .filter(template__event_type=self.event_type)
                                     .values('device'))
+
         survey_not_approved = (Partisipants.objects
                         .filter(~Q(approved=True))
                         .values('device'))
+
         not_in_survey = (Device.objects
                          .filter(~Q(survey_enabled=True))
                          .values('id'))
+
+        survey_date_not_passed = (Partisipants.objects
+                                  .filter(end_date__lt=self.now)
+                                  .values('device'))
+
         return (super().recipients()
+                .exclude(id__in=survey_date_not_passed)
                 .exclude(id__in=already_notified_devices)
                 .exclude(id__in=not_in_survey)
                 .exclude(id__in=survey_not_approved))
     
     
-@register_for_management_command
-class SurveyStartNotificationTask(NotificationTask):
-    def __init__(self, now=None, engine=None, dry_run=False, devices=None, force=False, min_active_days=0):
-        super().__init__(EventTypeChoices.SURVEY_START, now, engine, dry_run, devices, force)
-
-    def recipients(self):
-        return (super().recipients())
     
 @register_for_management_command
 class ReminderNotificationTask(NotificationTask):
@@ -665,11 +663,23 @@ class ReminderNotificationTask(NotificationTask):
         not_in_survey = (Device.objects
                          .filter(~Q(survey_enabled=True))
                          .values('id'))
-        no_survey_dates = (Partisipants.objects
-                           .filter(start_date_gte=F("start_date" + datetime.timedelta(days=2)))
-                           .values('device'))
+
+        survey_approved = (Partisipants.objects
+                        .filter(approved=True)
+                        .values('device'))
+
+        survey_date_not_passed = (Partisipants.objects
+                                  .filter(start_date__gt=self.now)
+                                  .values('device'))
+
+        notification_period_over = (Partisipants.objects
+                                  .filter(end_date__lte=self.now - datetime.timedelta(days=3))
+                                  .values('device'))
+
         return (super().recipients()
-                .exclude(id__in=no_survey_dates)
+                .exclude(id__in=survey_date_not_passed)
+                .exclude(id__in=notification_period_over)
+                .exclude(id__in=survey_approved)
                 .exclude(id__in=not_in_survey))
 
 @shared_task
