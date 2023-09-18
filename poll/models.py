@@ -166,7 +166,7 @@ MUNICIPALITY_OTHER = "Muu"
 
 class Trips(models.Model):
     partisipant = models.ForeignKey(
-        "poll.Partisipants", on_delete=models.CASCADE, null=True, related_name="trips"
+        "poll.Partisipants", on_delete=models.CASCADE, null=True
     )
 
     start_time = models.DateTimeField()
