@@ -144,8 +144,8 @@ CELERY_BEAT_SCHEDULE = {
     },
      'send-no-trips-notifications': {
        'task': 'notifications.tasks.send_notifications',
-       'args': ('notifications.tasks.NoTripsNotificationTask',),
-       'schedule': crontab(hour=15, minute=0),
+       'args': ('notifications.tasks.NoTripsTask',),
+       'schedule': crontab(hour=18, minute=0),
        'options': {
            'expires': 2 * 24 * 60 * 60,  #  2 days
        }
@@ -153,7 +153,7 @@ CELERY_BEAT_SCHEDULE = {
     'send-survey-end-notifications': {
        'task': 'notifications.tasks.send_notifications',
        'args': ('notifications.tasks.SurveyEndNotificationTask',),
-       'schedule': crontab(hour=15, minute=0),
+       'schedule': crontab(hour=18, minute=0),
        'options': {
            'expires': 23 * 60 * 60,  #  23 hours
        }
@@ -169,7 +169,7 @@ CELERY_BEAT_SCHEDULE = {
     'send-reminder-notifications': {
        'task': 'notifications.tasks.send_notifications',
        'args': ('notifications.tasks.ReminderNotificationTask',),
-       'schedule': crontab(hour=16, minute=0),
+       'schedule': crontab(hour=19, minute=0),
        'options': {
            'expires':  23 * 60 * 60,  #  23 hours
        }
