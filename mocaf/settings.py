@@ -153,7 +153,7 @@ CELERY_BEAT_SCHEDULE = {
     'send-survey-end-notifications': {
        'task': 'notifications.tasks.send_notifications',
        'args': ('notifications.tasks.SurveyEndNotificationTask',),
-       'schedule': crontab(hour=20, minute=0),
+       'schedule': crontab(hour=22, minute=0),
        'options': {
            'expires': 23 * 60 * 60,  #  23 hours
        }
