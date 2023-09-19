@@ -645,7 +645,7 @@ class SurveyEndNotificationTask(NotificationTask):
                          .values('id'))
 
         survey_date_not_passed = (Partisipants.objects
-                                  .filter(end_date__lt=self.now)
+                                  .filter(end_date__gte=self.now)
                                   .values('device'))
 
         return (super().recipients()
