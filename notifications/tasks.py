@@ -126,6 +126,7 @@ class NotificationTask:
                 # TODO: Send to multiple devices at once (unless context is device-specific) by using a list of all
                 # devices as first argument of engine.send_notification()
                 send_exception = None
+                response = None
                 try:
                     response = self.engine.send_notification([device], title, content, event_type, action_type, extra_data=extra_data).json()
                 except Exception as e:
