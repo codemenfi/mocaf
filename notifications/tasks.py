@@ -607,11 +607,11 @@ class NoTripsTask(NotificationTask):
         super().__init__(EventTypeChoices.NO_TRIPS, now, engine, dry_run, devices, force)
 
     def recipients(self):
-        """Return devices that have not had any trips between 2 days after register."""
-        already_notified_devices = (NotificationLogEntry.objects
-                                    .filter(template__event_type=self.event_type)
-                                    .filter(sent_at__gte=self.now - datetime.timedelta(days=2))
-                                    .values('device'))
+        current_day = datetime.date.today()
+        after_survey = (Partisipants.objects
+                        .annotate(limit=F("end_date")+datetime.timedelta(days=1))
+                        .filter(limit__lte=current_day)
+                        .values('device'))
         not_in_survey = (Device.objects
                          .filter(~Q(survey_enabled=True))
                          .values('id'))
@@ -623,7 +623,7 @@ class NoTripsTask(NotificationTask):
 
         return (super().recipients()
                 .exclude(id__in=has_survey_trips)
-                .exclude(id__in=already_notified_devices)
+                .exclude(id__in=after_survey)
                 .exclude(id__in=not_in_survey))
 
 @register_for_management_command
@@ -632,27 +632,20 @@ class SurveyEndNotificationTask(NotificationTask):
         super().__init__(EventTypeChoices.END_OF_SURVEY, now, engine, dry_run, devices, force)
 
     def recipients(self):
-        already_notified_devices = (NotificationLogEntry.objects
-                                    .filter(template__event_type=self.event_type)
-                                    .values('device'))
 
-        survey_not_approved = (Partisipants.objects
-                        .filter(~Q(approved=True))
-                        .values('device'))
 
         not_in_survey = (Device.objects
                          .filter(~Q(survey_enabled=True))
                          .values('id'))
-
+        current_day = datetime.date.today()
         survey_date_not_passed = (Partisipants.objects
-                                  .filter(end_date__gte=self.now)
+                                  .annotate(notification_day=F("start_date")+datetime.timedelta(days=3))
+                                  .filter(~Q(notification_day=current_day))
                                   .values('device'))
 
         return (super().recipients()
                 .exclude(id__in=survey_date_not_passed)
-                .exclude(id__in=already_notified_devices)
-                .exclude(id__in=not_in_survey)
-                .exclude(id__in=survey_not_approved))
+                .exclude(id__in=not_in_survey))
     
     
     
