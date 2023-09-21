@@ -128,12 +128,14 @@ class ConfigNode(AuthenticatedDeviceNode):
 class EnableMocafMutation(graphene.Mutation):
     class Arguments:
         uuid = graphene.String(required=False)
+        carbon = graphene.Boolean(required=False)
+        survey = graphene.Boolean(required=False)
 
     ok = graphene.Boolean()
     token = graphene.String(required=False)
 
     @transaction.atomic
-    def mutate(root, info, uuid=None):
+    def mutate(root, info, uuid=None, carbon=None, survey=None):
         dev = info.context.device
         if dev:
             if uuid:
@@ -149,15 +151,29 @@ class EnableMocafMutation(graphene.Mutation):
             else:
                 if dev.token:
                     raise GraphQLError("Device exists, specify token with the @device directive", [info])
+
+
             dev.generate_token()
-            dev.mocaf_enabled = True
             dev.save()
             token = dev.token
+
+        # By default enable carbon to support older clients
+        if carbon is None and survey is None:
+            dev.mocaf_enabled = True
+            dev.save()
+
+        if carbon is not None:
+            dev.mocaf_enabled = carbon
+            dev.save()
+
+        if survey is not None:
+            dev.survey_enabled = survey
+            dev.save()
 
         try:
             dev.set_enabled(True)
         except InvalidStateError:
-            raise GraphQLError('Already enabled', [info])
+            sentry_sdk.capture_exception(GraphQLError('Mocaf already enabled', [info]))
 
         return dict(ok=True, token=token)
 
@@ -188,12 +204,31 @@ class EnableCarbonMutation(graphene.Mutation):
 
 
 class DisableMocafMutation(graphene.Mutation, AuthenticatedDeviceNode):
+    class Arguments:
+        carbon = graphene.Boolean(required=False)
+        survey = graphene.Boolean(required=False)
+
     ok = graphene.Boolean()
 
-    def mutate(root, info):
+    def mutate(root, info, carbon=None, survey=None):
         dev = info.context.device
+
+        # By default disable carbon to support older clients
+        if carbon is None and survey is None:
+            dev.mocaf_enabled = False
+            dev.save()
+
+        if carbon is not None:
+            dev.mocaf_enabled = not carbon
+            dev.save()
+
+        if survey is not None:
+            dev.survey_enabled = not survey
+            dev.save()
+
         try:
-            dev.set_enabled(False)
+            if dev.mocaf_enabled == False and dev.survey_enabled == False:
+                dev.set_enabled(False)
         except InvalidStateError:
             sentry_sdk.capture_exception(GraphQLError('Mocaf already disabled', [info]))
 
