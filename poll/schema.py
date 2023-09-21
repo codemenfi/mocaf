@@ -927,7 +927,7 @@ class SplitTrip(graphene.Mutation, AuthenticatedDeviceNode):
                 lastLeg = Legs.objects.get(pk=after_leg_id)
 
                 legsObj = Legs.objects.filter(
-                    trip=trip_id, start_time__gt=lastLeg.start_time
+                    trip=trip_id, start_time__gte=lastLeg.start_time
                 ).order_by("start_time")
                 first = True
                 newStartTime = lastLeg.start_time
