@@ -10,7 +10,7 @@ from graphql.error import GraphQLError
 from mocaf.graphql_types import AuthenticatedDeviceNode, DjangoNode
 from mocaf.graphql_gis import LineStringScalar, PointScalar
 from django.db import transaction, DatabaseError
-from django.db.models import Q, F
+from django.db.models import Q
 import json
 from types import SimpleNamespace
 
