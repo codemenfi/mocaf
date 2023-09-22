@@ -37,6 +37,7 @@ class ActionTypeChoises(models.TextChoices):
     OPEN_SURVEY_CORRECTION= 'open_traffic_survey_correction_info',_("Function check")
     ENABLE_SURVEY = 'enable_traffic_survey', _("Survey info message")
     OPEN_SURVEY = 'open_traffic_survey',_("Check your day trips")
+    OPEN_FEEDBACK = 'open_traffic_survey_feedback_link', _("Open link to survey feedback")
 
 def example_month(language):
     with override(language):
@@ -86,6 +87,7 @@ available_variables = {
     ActionTypeChoises.OPEN_SURVEY: [],
     ActionTypeChoises.ENABLE_SURVEY: [],
     ActionTypeChoises.OPEN_SURVEY_CORRECTION: [],
+    ActionTypeChoises.OPEN_FEEDBACK: [],
 }
 
 variable_help_text = '<ul style="margin-left: 1em">'
