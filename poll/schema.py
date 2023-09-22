@@ -1221,7 +1221,7 @@ class Query(graphene.ObjectType):
             raise GraphQLError("Authentication required", [info])
 
         return SurveyInfo.objects.get(
-            start_day__lte=selectedDate, end_day__gte=selectedDate
+            start_day__lte=selectedDate - timedelta(days=7), end_day__gte=selectedDate
         )
 
     def resolve_pollSurveyInfo(root, info):
