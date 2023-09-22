@@ -10,7 +10,7 @@ from graphql.error import GraphQLError
 from mocaf.graphql_types import AuthenticatedDeviceNode, DjangoNode
 from mocaf.graphql_gis import LineStringScalar, PointScalar
 from django.db import transaction, DatabaseError
-from django.db.models import Q
+from django.db.models import Q, F
 import json
 from types import SimpleNamespace
 
@@ -1220,9 +1220,8 @@ class Query(graphene.ObjectType):
         if not dev:
             raise GraphQLError("Authentication required", [info])
 
-        return SurveyInfo.objects.get(
-            start_day__lte=selectedDate - timedelta(days=7), end_day__gte=selectedDate
-        )
+        return (SurveyInfo.objects
+                .get(start_day__lte=selectedDate + timedelta(days=7), end_day__gte=selectedDate))
 
     def resolve_pollSurveyInfo(root, info):
         dev = info.context.device
