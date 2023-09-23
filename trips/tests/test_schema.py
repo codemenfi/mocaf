@@ -321,6 +321,7 @@ def test_enable_mocaf_creates_device(graphql_client_query_data):
     assert data["enableMocaf"]["token"]
     assert Device.objects.filter(uuid=uuid).exists()
 
+
 def test_enable_mocaf_with_survey(graphql_client_query_data):
     uuid = "12345678-9abc-def0-1234-567890123456"
     assert not Device.objects.filter(uuid=uuid).exists()
@@ -340,6 +341,7 @@ def test_enable_mocaf_with_survey(graphql_client_query_data):
     assert Device.objects.filter(uuid=uuid).exists()
     assert Device.objects.get(uuid=uuid).survey_enabled == True
     assert Device.objects.get(uuid=uuid).mocaf_enabled == False
+
 
 def test_enable_mocaf_with_carbon(graphql_client_query_data):
     uuid = "12345678-9abc-def0-1234-567890123456"
@@ -361,6 +363,7 @@ def test_enable_mocaf_with_carbon(graphql_client_query_data):
     assert Device.objects.get(uuid=uuid).survey_enabled == False
     assert Device.objects.get(uuid=uuid).mocaf_enabled == True
 
+
 def test_enable_mocaf_without_survey_or_carbon(graphql_client_query_data):
     uuid = "12345678-9abc-def0-1234-567890123456"
     assert not Device.objects.filter(uuid=uuid).exists()
@@ -380,6 +383,7 @@ def test_enable_mocaf_without_survey_or_carbon(graphql_client_query_data):
     assert Device.objects.filter(uuid=uuid).exists()
     assert Device.objects.get(uuid=uuid).survey_enabled == False
     assert Device.objects.get(uuid=uuid).mocaf_enabled == True
+
 
 def test_enable_mocaf_with_carbon_after_survey(graphql_client_query_data):
     uuid = "12345678-9abc-def0-1234-567890123456"
@@ -421,6 +425,7 @@ def test_enable_mocaf_with_carbon_after_survey(graphql_client_query_data):
     assert Device.objects.get(uuid=uuid).survey_enabled == True
     assert Device.objects.get(uuid=uuid).mocaf_enabled == True
 
+
 def test_enable_mocaf_with_survey_after_carbon(graphql_client_query_data):
     uuid = "12345678-9abc-def0-1234-567890123456"
     assert not Device.objects.filter(uuid=uuid).exists()
@@ -461,9 +466,8 @@ def test_enable_mocaf_with_survey_after_carbon(graphql_client_query_data):
     assert Device.objects.get(uuid=uuid).survey_enabled == True
     assert Device.objects.get(uuid=uuid).mocaf_enabled == True
 
-def test_disable_mocaf_separately(
-    graphql_client_query_data, uuid, token
-):
+
+def test_disable_mocaf_separately(graphql_client_query_data, uuid, token):
     data = graphql_client_query_data(
         """
         mutation($uuid: String!, $token: String!, $survey: Boolean, $carbon: Boolean) 
@@ -475,7 +479,12 @@ def test_disable_mocaf_separately(
           }
         }
         """,
-        variables={"uuid": str(uuid), "token": str(token), "survey": True, "carbon": True},
+        variables={
+            "uuid": str(uuid),
+            "token": str(token),
+            "survey": True,
+            "carbon": True,
+        },
     )
     assert data["enableMocaf"]["ok"]
     assert Device.objects.get(uuid=uuid).survey_enabled == True

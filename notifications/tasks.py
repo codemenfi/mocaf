@@ -664,11 +664,12 @@ class ReminderNotificationTask(NotificationTask):
                         .values('device'))
 
         survey_date_not_passed = (Partisipants.objects
-                                  .filter(start_date__gt=self.now)
+                                  .filter(start_date__gte=self.now)
                                   .values('device'))
 
         notification_period_over = (Partisipants.objects
-                                  .filter(end_date__lte=self.now - datetime.timedelta(days=3))
+                                  .annotate(last_notification_day=F("end_date") + datetime.timedelta(days=3))
+                                  .filter(last_notification_day__lt=self.now)
                                   .values('device'))
 
         return (super().recipients()
