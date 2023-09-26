@@ -283,6 +283,10 @@ class Legs(models.Model):
     original_leg = models.BooleanField(null=True, default=True)
     deleted = models.BooleanField(null=True, default=False)
 
+    received_at = models.DateTimeField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(null=True)
+
     def deleteLeg(self):
         if self.original_leg == True:
             self.deleted = True
