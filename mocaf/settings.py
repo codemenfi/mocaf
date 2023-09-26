@@ -116,6 +116,13 @@ CELERY_BEAT_SCHEDULE = {
             'expires': 30,
         }
     },
+    'generate-new-survey-trips': {
+        'task': 'poll.tasks.generate_new_survey_trips',
+        'schedule': 240,
+        'options': {
+            'expires': 30,
+        }
+    },
     'award-prizes-and-send-notifications': {
         'task': 'notifications.tasks.award_prizes_and_send_notifications',
         'kwargs': {

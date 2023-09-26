@@ -7,7 +7,7 @@ from celery import shared_task
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.db import transaction
-from django.db.models import QuerySet, Q
+from django.db.models import QuerySet, Q, DateField
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import override
@@ -609,7 +609,7 @@ class NoTripsTask(NotificationTask):
     def recipients(self):
         current_day = datetime.date.today()
         after_survey = (Partisipants.objects
-                        .annotate(limit=F("end_date")+datetime.timedelta(days=1))
+                        .annotate(limit=F("end_date")+datetime.timedelta(days=1), output_field=DateField())
                         .filter(limit__lte=current_day)
                         .values('device'))
         not_in_survey = (Device.objects
@@ -619,6 +619,7 @@ class NoTripsTask(NotificationTask):
         no_trips = Q(trips__start_time__gte=F("registered_to_survey_at")) & Q(trips__deleted=False)
         has_survey_trips = (Partisipants.objects
                             .filter(no_trips)
+                            .distinct()
                             .values('device'))
 
         return (super().recipients()
@@ -639,7 +640,7 @@ class SurveyEndNotificationTask(NotificationTask):
                          .values('id'))
         current_day = datetime.date.today()
         survey_date_not_passed = (Partisipants.objects
-                                  .annotate(notification_day=F("start_date")+datetime.timedelta(days=3))
+                                  .annotate(notification_day=F("start_date")+datetime.timedelta(days=3), output_field=DateField())
                                   .filter(~Q(notification_day=current_day))
                                   .values('device'))
 
@@ -663,6 +664,11 @@ class ReminderNotificationTask(NotificationTask):
                         .filter(approved=True)
                         .values('device'))
 
+        trips_approved = (Partisipants.objects
+                          .filter(trips__approved=True)
+                          .distinct()
+                          .values('device'))
+
         survey_date_not_passed = (Partisipants.objects
                                   .filter(start_date__gte=self.now)
                                   .values('device'))
@@ -676,6 +682,7 @@ class ReminderNotificationTask(NotificationTask):
                 .exclude(id__in=survey_date_not_passed)
                 .exclude(id__in=notification_period_over)
                 .exclude(id__in=survey_approved)
+                .exclude(id__in=trips_approved)
                 .exclude(id__in=not_in_survey))
 
 @shared_task
