@@ -294,7 +294,7 @@ class SurveyTripGenerator:
 
     def find_uuids_with_new_samples(self, min_received_at: Optional[datetime]=None):
         if not min_received_at:
-            min_received_at = timezone.now() - timedelta(days=20)
+            min_received_at = timezone.now() - timedelta(days=7)
 
         uuid_qs = (
             Location.objects
