@@ -16,14 +16,13 @@ from django.contrib.gis.gdal import SpatialReference, CoordTransform
 from django.contrib.gis.geos import Point
 from django.utils import timezone
 from psycopg2.extras import execute_values
-from trips.models import Device, TransportMode, Trip, Leg, LegLocation
+from trips.models import Device
 from trips_ingest.models import Location
 from poll.models import MUNICIPALITY_CHOICES, MUNICIPALITY_OTHER, Trips, Legs, LegsLocation, Partisipants
 
 
 logger = logging.getLogger(__name__)
 
-LEG_LOCATION_TABLE = LegLocation._meta.db_table
 LEGS_LOCATION_TABLE = LegsLocation._meta.db_table
 
 local_crs = SpatialReference(LOCAL_2D_CRS)
@@ -52,20 +51,9 @@ class GeneratorError(Exception):
     pass
 
 
-class TripGenerator:
+class SurveyTripGenerator:
     def __init__(self, force=False):
         self.force = force
-        transport_modes = {x.identifier: x for x in TransportMode.objects.all()}
-        self.atype_to_mode = {
-            'walking': transport_modes['walk'],
-            'on_foot': transport_modes['walk'],
-            'in_vehicle': transport_modes['car'],
-            'running': transport_modes['walk'],
-            'on_bicycle': transport_modes['bicycle'],
-            'bus': transport_modes['bus'],
-            'tram': transport_modes['tram'],
-            'train': transport_modes['train'],
-        }
 
         self.atype_to_survey_mode = {
             'walking': 'walk',
@@ -78,33 +66,6 @@ class TripGenerator:
             'train': 'train',
         }
 
-    def insert_leg_locations(self, rows):
-        # Having "None" as the speed column is a periodically recurring
-        # issue. Raise error to continue with other uuids if None found
-        # in speed column
-        try:
-            next(x for x in rows if x[4] is None)
-            raise GeneratorError('Encountered invalid value None as speed for leg')
-        except StopIteration:
-            pass
-        pc = PerfCounter('save_locations', show_time_to_last=True)
-        query = f'''INSERT INTO {LEG_LOCATION_TABLE} (
-            leg_id, loc, time, speed
-        ) VALUES %s'''
-
-        with connection.cursor() as cursor:
-            pc.display('after cursor')
-            value_template = """(
-                    %s,
-                    ST_SetSRID(ST_MakePoint(%s, %s), 4326),
-                    %s :: timestamptz,
-                    %s
-            )"""
-            execute_values(
-                cursor, query, rows, template=value_template, page_size=10000
-            )
-
-        pc.display('after insert')
 
     def insert_survey_leg_locations(self, rows):
         # Having "None" as the speed column is a periodically recurring
@@ -134,43 +95,12 @@ class TripGenerator:
 
         pc.display('after insert')
 
-    def save_leg(self, trip, df, last_ts, default_variants, pc):
-        start = df.iloc[0][['time', 'x', 'y']]
-        end = df.iloc[-1][['time', 'x', 'y']]
-        received_at = df.iloc[-1].created_at
-
-        leg_length = df['distance'].sum()
-
-        # Ensure trips are ordered properly
-        assert start.time >= last_ts and end.time >= last_ts
-
-        mode = self.atype_to_mode[df.iloc[0].atype]
-        variant = default_variants.get(mode)
-
-       
-        leg = Leg(
-            trip=trip,
-            mode=mode,
-            mode_variant=variant,
-            estimated_mode=mode,
-            length=leg_length,
-            start_time=start.time,
-            end_time=end.time,
-            start_loc=make_point(start.x, start.y),
-            end_loc=make_point(end.x, end.y),
-            received_at=received_at,
-        )
-        leg.update_carbon_footprint()
-        leg.save()
-        rows = generate_leg_location_rows(leg, df)
-        pc.display(str(leg))
-
-        return rows, end.time
 
 
     def save_survey_leg(self, trip, df, last_ts, pc):
         start = df.iloc[0][['time', 'x', 'y']]
         end = df.iloc[-1][['time', 'x', 'y']]
+        received_at = df.iloc[-1].created_at
 
         leg_length = df['distance'].sum()
 
@@ -187,6 +117,7 @@ class TripGenerator:
             end_time=end.time,
             start_loc=make_point(start.x, start.y),
             end_loc=make_point(end.x, end.y),
+            received_at=received_at,
         )
         leg.save()
         rows = generate_leg_location_rows(leg, df)
@@ -254,77 +185,58 @@ class TripGenerator:
         df['lat'] = df.geometry.y
         pc.display('after crs for %d points' % len(df))
 
+        partisipant = Partisipants.objects.filter(device=device).first()
+
         # Delete trips that overlap with our data
         overlap = Q(end_time__gte=min_time) & Q(end_time__lte=max_time)
         overlap |= Q(start_time__gte=min_time) & Q(start_time__lte=max_time)
-        legs = Leg.objects.filter(trip__device=device).filter(overlap)
+        legs = Legs.objects.filter(trip__partisipant=partisipant).filter(overlap)
 
         if not self.force:
             if legs.filter(
-                Q(feedbacks__isnull=False) | Q(user_corrected_mode__isnull=False) | Q(user_corrected_mode_variant__isnull=False)
+                Q(original_leg=False) 
             ).exists():
+                pc.display('Legs have user corrected elements, not deleting')
                 logger.info('Legs have user corrected elements, not deleting')
                 return
 
         if not self.force:
-            if device.trips.filter(legs__in=legs).filter(feedbacks__isnull=False):
+            if partisipant.trips_set.filter(legs__in=legs).filter(Q(original_trip=False) | ~Q(purpose='tyhja')).exists():
                 logger.info('Trips have user corrected elements, not deleting')
+                pc.display('Trips have user corrected elements, not deleting')
                 return
 
-        # TODO: delete survey trips
-        count = device.trips.filter(legs__in=legs).delete()
+        count = Trips.objects.filter(legs__in=legs, partisipant=partisipant).delete()
         pc.display('deleted')
 
         # Create trips
         survey_enabled = Device.objects.get(uuid=uuid).survey_enabled
-        mocaf_enabled = Device.objects.get(uuid=uuid).mocaf_enabled
-
-        if mocaf_enabled:
-            all_rows = []
-            trip = Trip(device=device)
-            trip.save()
-            pc.display('trip %d saved' % trip.id)
-
+            
+        if survey_enabled and partisipant:
+            all_rows_survey = []
+            survey_trip = Trips(start_time=min_time, end_time=max_time, partisipant_id=partisipant.id)
+            survey_trip.save()
+            pc.display('survey trip %d saved' % survey_trip.id)
+            first_leg = True
             leg_ids = df.leg_id.unique()
+            leg_df = None
             last_ts = df.time.min()
             for leg_id in leg_ids:
                 leg_df = df[df.leg_id == leg_id]
 
-                leg_rows, last_ts = self.save_leg(trip, leg_df, last_ts, default_variants, pc)
-                all_rows += leg_rows
+                if first_leg:
+                    first_leg = False
+                    self.save_survey_trip_town(survey_trip, leg_df, True)
 
-            pc.display('generated %d legs' % len(leg_ids))
-            self.insert_leg_locations(all_rows)
-            pc.display('updating carbon footprint')
-            trip.update_device_carbon_footprint()
-            pc.display('trip %d save done' % trip.id)
-            
-        # partisipant = Partisipants.objects.filter(device=device).first()
-        # if survey_enabled and partisipant:
-        #     all_rows_survey = []
-        #     survey_trip = Trips(start_time=min_time, end_time=max_time, partisipant_id=partisipant.id)
-        #     survey_trip.save()
-        #     pc.display('survey trip %d saved' % survey_trip.id)
-        #     first_leg = True
-        #     leg_ids = df.leg_id.unique()
-        #     leg_df = None
-        #     last_ts = df.time.min()
-        #     for leg_id in leg_ids:
-        #         leg_df = df[df.leg_id == leg_id]
-        #
-        #         if first_leg:
-        #             first_leg = False
-        #             self.save_survey_trip_town(survey_trip, leg_df, True)
-        #
-        #         leg_rows_survey, last_ts = self.save_survey_leg(survey_trip, leg_df, last_ts, pc)
-        #         all_rows_survey += leg_rows_survey
-        #
-        #     if not first_leg and leg_df is not None:
-        #         self.save_survey_trip_town(survey_trip, leg_df, False)
-        #
-        #     pc.display('generated %d survey legs' % len(leg_ids))
-        #     self.insert_survey_leg_locations(all_rows_survey)
-        #     pc.display('survey trip %d save done' % survey_trip.id)
+                leg_rows_survey, last_ts = self.save_survey_leg(survey_trip, leg_df, last_ts, pc)
+                all_rows_survey += leg_rows_survey
+
+            if not first_leg and leg_df is not None:
+                self.save_survey_trip_town(survey_trip, leg_df, False)
+
+            pc.display('generated %d survey legs' % len(leg_ids))
+            self.insert_survey_leg_locations(all_rows_survey)
+            pc.display('survey trip %d save done' % survey_trip.id)
 
 
     def begin(self):
@@ -382,7 +294,7 @@ class TripGenerator:
 
     def find_uuids_with_new_samples(self, min_received_at: Optional[datetime]=None):
         if not min_received_at:
-            min_received_at = timezone.now() - timedelta(days=7)
+            min_received_at = timezone.now() - timedelta(days=20)
 
         uuid_qs = (
             Location.objects
@@ -393,8 +305,8 @@ class TripGenerator:
         uuids = uuid_qs.values('uuid')
         devices = (
             Device.objects.annotate(
-                last_leg_received_at=Max('trips__legs__received_at'),
-                last_leg_end_time=Max('trips__legs__end_time'),
+                last_leg_received_at=Max('partisipants__trips__legs__received_at'),
+                last_leg_end_time=Max('partisipants__trips__legs__end_time'),
             )
             .values('uuid', 'last_leg_received_at', 'last_leg_end_time', 'last_processed_data_received_at')
             .filter(uuid__in=uuids)
@@ -431,6 +343,7 @@ class TripGenerator:
     def generate_new_trips(self, only_uuid=None):
         now = timezone.now()
         uuids = self.find_uuids_with_new_samples()
+        logger.info('found %d uuids' % len(uuids))
         for uuid, last_leg_end in uuids:
             if only_uuid is not None:
                 if str(uuid) != only_uuid:
