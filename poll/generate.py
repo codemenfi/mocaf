@@ -186,6 +186,9 @@ class SurveyTripGenerator:
         pc.display('after crs for %d points' % len(df))
 
         partisipant = Partisipants.objects.filter(device=device).first()
+        if partisipant is None:
+            logger.info('No partisipant for device %s' % device)
+            return
 
         # Delete trips that overlap with our data
         overlap = Q(end_time__gte=min_time) & Q(end_time__lte=max_time)
