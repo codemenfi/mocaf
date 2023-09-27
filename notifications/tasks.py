@@ -7,7 +7,7 @@ from celery import shared_task
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.db import transaction
-from django.db.models import QuerySet, Q, DateField
+from django.db.models import QuerySet, Q, DateField, ExpressionWrapper
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import override
@@ -607,11 +607,11 @@ class NoTripsTask(NotificationTask):
         super().__init__(EventTypeChoices.NO_TRIPS, now, engine, dry_run, devices, force)
 
     def recipients(self):
-        current_day = datetime.date.today()
+        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
         after_survey = (Partisipants.objects
-                        .annotate(limit=F("end_date")+datetime.timedelta(days=1), output_field=DateField())
-                        .filter(limit__lte=current_day)
+                        .filter(start_date__lte=tomorrow)
                         .values('device'))
+
         not_in_survey = (Device.objects
                          .filter(~Q(survey_enabled=True))
                          .values('id'))
@@ -633,14 +633,13 @@ class SurveyEndNotificationTask(NotificationTask):
         super().__init__(EventTypeChoices.END_OF_SURVEY, now, engine, dry_run, devices, force)
 
     def recipients(self):
-
-
         not_in_survey = (Device.objects
                          .filter(~Q(survey_enabled=True))
                          .values('id'))
+
         current_day = datetime.date.today()
         survey_date_not_passed = (Partisipants.objects
-                                  .annotate(notification_day=F("start_date")+datetime.timedelta(days=3), output_field=DateField())
+                                  .annotate(notification_day=ExpressionWrapper(F("start_date")+datetime.timedelta(days=3), output_field=DateField()))
                                   .filter(~Q(notification_day=current_day))
                                   .values('device'))
 
@@ -674,7 +673,7 @@ class ReminderNotificationTask(NotificationTask):
                                   .values('device'))
 
         notification_period_over = (Partisipants.objects
-                                  .annotate(last_notification_day=F("end_date") + datetime.timedelta(days=3))
+                                  .annotate(last_notification_day=ExpressionWrapper(F("end_date") + datetime.timedelta(days=3), output_field=DateField()))
                                   .filter(last_notification_day__lt=self.now)
                                   .values('device'))
 
