@@ -634,7 +634,7 @@ class SurveyEndNotificationTask(NotificationTask):
 
     def recipients(self):
         not_in_survey = (Device.objects
-                         .filter(~Q(survey_enabled=True))
+                         .filter(~Q(survey_enabled=True) | Q(partisipants__isnull=True))
                          .values('id'))
 
         current_day = datetime.date.today()
@@ -656,7 +656,7 @@ class ReminderNotificationTask(NotificationTask):
 
     def recipients(self):
         not_in_survey = (Device.objects
-                         .filter(~Q(survey_enabled=True))
+                         .filter(~Q(survey_enabled=True) | Q(partisipants__isnull=True))
                          .values('id'))
 
         survey_approved = (Partisipants.objects
