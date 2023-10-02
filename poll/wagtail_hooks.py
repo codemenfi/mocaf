@@ -142,4 +142,4 @@ class PollGroup(ModelAdminGroup):
     menu_label = "Poll"
     
     menu_icon = 'snippet'
-    items = (PartisipantsAdmin, SurveyInfoAdmin, LegAdmin, TripAdmin, LotteryAdmin)
+    items = (SurveyInfoAdmin, TripAdmin)
