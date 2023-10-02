@@ -34,3 +34,4 @@ responses
 ranking
 django-prometheus
 OWSLib
+XlsxWriter
