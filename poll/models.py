@@ -259,7 +259,7 @@ class Trips(models.Model):
         start_time = self.start_time.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
         end_time = self.end_time.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
         return {
-            "id": self.id,
+            "id": self.pk,
             "start_time": start_time,
             "end_time": end_time,
             "purpose": self.purpose,
@@ -335,13 +335,14 @@ class Legs(models.Model):
     def to_json(self):
         start_time = self.start_time.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
         end_time = self.end_time.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
+        received_at = self.received_at.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
         return {
             "id": self.pk,
             "start_time": start_time,
             "end_time": end_time,
             "trip_length": self.trip_length,
             "transport_mode": self.transport_mode,
-            "received_at": self.received_at,
+            "received_at": received_at,
         }
 
     def __str__(self):
