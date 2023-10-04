@@ -272,7 +272,8 @@ class SurveyTripGenerator:
 
         partisipant = Partisipants.objects.filter(device=device).order_by("-registered_to_survey_at").first()
         if partisipant is None:
-            raise GeneratorError('No partisipant for device %s' % uuid)
+            logger.info('No partisipant for device %s' % device)
+            return
 
         device._default_variants = {x.mode: x.variant for x in device.default_mode_variants.all()}
 
