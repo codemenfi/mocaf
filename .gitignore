@@ -19,3 +19,4 @@ node_modules/
 yarn-error.log
 analytics/cubeserver/.cubestore/
 docker-compose.override.yml
+.venv

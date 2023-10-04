@@ -111,6 +111,8 @@ class Partisipants(models.Model):
 
     feeling_question_answers = models.JSONField(null=True)
 
+    last_processed_data_received_at = models.DateTimeField(null=True)
+
     class Meta:
         unique_together = ("device", "survey_info")
 
@@ -128,6 +130,14 @@ class DayInfo(models.Model):
 class Lottery(models.Model):
     user_name = models.TextField()
     user_email = models.EmailField()
+
+
+class OriginalTrip(models.Model):
+    trip = models.OneToOneField(
+        "poll.Trips", on_delete=models.CASCADE, related_name="original_trip_data"
+    )
+    data = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 TRAVEL_TO_WORK_TRIP = "travel_to_work_trip"
@@ -245,6 +255,29 @@ class Trips(models.Model):
     def last_leg(self):
         return self.legs_set.order_by("-end_time").first()
 
+    def to_json(self):
+        start_time = self.start_time.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
+        end_time = self.end_time.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
+        return {
+            "id": self.id,
+            "start_time": start_time,
+            "end_time": end_time,
+            "purpose": self.purpose,
+            "approved": self.approved,
+            "start_municipality": self.start_municipality,
+            "end_municipality": self.end_municipality,
+            "length": self.length,
+            "legs": [leg.to_json() for leg in self.legs_set.all()],
+        }
+
+    def save_original_trip(self):
+        original_trip_data = OriginalTrip.objects.filter(trip=self).first()
+        if original_trip_data:
+            return
+
+        original_trip = OriginalTrip(trip=self, data=self.to_json())
+        original_trip.save()
+
     class Meta:
         constraints = [
             models.CheckConstraint(
@@ -299,17 +332,40 @@ class Legs(models.Model):
     def can_user_update(self) -> bool:
         return timezone.now() < self.trip.get_update_end_time()
 
+    def to_json(self):
+        start_time = self.start_time.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
+        end_time = self.end_time.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
+        return {
+            "id": self.pk,
+            "start_time": start_time,
+            "end_time": end_time,
+            "trip_length": self.trip_length,
+            "carbon_footprint": self.carbon_footprint,
+            "nr_passengers": self.nr_passengers,
+            "transport_mode": self.transport_mode,
+            "start_loc": self.start_loc,
+            "end_loc": self.end_loc,
+            "deleted": self.deleted,
+            "received_at": self.received_at,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
 
     def __str__(self):
         duration = (self.end_time - self.start_time).total_seconds() / 60
-        deleted = 'DELETED ' if self.deleted else ''
+        deleted = "DELETED " if self.deleted else ""
         mode_str = self.transport_mode
 
         start_time = self.start_time.astimezone(LOCAL_TZ)
 
-        return '%sLeg [%s]: Started at %s (duration %.1f min), length %.1f km' % (
-            deleted, mode_str, start_time, duration, self.trip_length / 1000
+        return "%sLeg [%s]: Started at %s (duration %.1f min), length %.1f km" % (
+            deleted,
+            mode_str,
+            start_time,
+            duration,
+            self.trip_length / 1000,
         )
+
 
 class LegsLocationQuerySet(models.QuerySet):
     def _get_expired_query(self):
