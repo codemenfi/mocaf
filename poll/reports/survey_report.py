@@ -1,6 +1,7 @@
 from django.db.models import F
 from poll.models import Trips
 import xlsxwriter
+import json
 
 
 def partisipant_trips(partisipant):
@@ -45,16 +46,25 @@ purpose_texts = {
     "tyhja": "",
 }
 
+question_columns = {
+    "Sukupuoli": 1,
+    "Syntymävuosi": 2,
+    "Asuinpaikan postinumero": 3,
+    "Korkein suorittamasi koulutus?": 4,
+    "Asumismuoto": 5,
+    "Henkilöauton ajokortti (B-kortti)": 6,
+    "Onko kotitaloudellasi auto aina käytettävissä?": 7,
+    "Kun liikut autolla, oletko useammin": 8,
+    "Kävelyn, pyöräilyn ja joukkoliikenteen olosuhteita tulee kehittää, vaikka se tarkoittaisi paikoin autoliikenteen olosuhteiden heikentymistä.": 9,
+    "Kävelyn, pyöräilyn ja joukkoliikenteen olosuhteita tulee kehittää, mutta autoliikenteen olosuhteiden tulee säilyä vähintään nykyisellään.": 10,
+}
 
-def format_question_answers(answers_json):
+
+def parse_question_answers(answers_json):
     if type(answers_json) is str:
-        return ""
+        answers_json = json.loads(answers_json)
 
-    result = ""
-    for key, value in answers_json.items():
-        result += f"{key}: {value}\n"
-
-    return result
+    return answers_json
 
 
 def export_survey_trips(survey):
@@ -80,8 +90,9 @@ def export_survey_trips(survey):
     worksheet.write(row, col + 9, "Matkanosan tunniste")
     worksheet.write(row, col + 10, "Matkanosan pituus")
     worksheet.write(row, col + 11, "Matkanosan kulkutapa")
-    worksheet.write(row, col + 12, "Taustakysymykset 1")
-    worksheet.write(row, col + 13, "Taustakysymykset 2")
+
+    for key, value in question_columns.items():
+        worksheet.write(row, value + 11, key)
 
     row += 1
 
@@ -95,18 +106,21 @@ def export_survey_trips(survey):
         worksheet.write(row, col + 6, trip.start_municipality)
         worksheet.write(row, col + 7, trip.end_municipality)
         worksheet.write(row, col + 8, trip.length)
-        worksheet.write(
-            row,
-            col + 12,
-            format_question_answers(trip.partisipant.back_question_answers),
-            wrap,
+
+        back_questions = parse_question_answers(trip.partisipant.back_question_answers)
+        for question in back_questions:
+            key = question["questionId"]
+            value = question["answer"]
+            worksheet.write(row, question_columns[key] + 11, value)
+
+        feeling_questions = parse_question_answers(
+            trip.partisipant.feeling_question_answers
         )
-        worksheet.write(
-            row,
-            col + 13,
-            format_question_answers(trip.partisipant.feeling_question_answers),
-            wrap,
-        )
+        for question in feeling_questions:
+            key = question["questionId"]
+            value = question["answer"]
+            worksheet.write(row, question_columns[key] + 11, value)
+
         row += 1
 
         for leg in trip.legs_set.all():
