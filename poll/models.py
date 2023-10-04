@@ -340,15 +340,8 @@ class Legs(models.Model):
             "start_time": start_time,
             "end_time": end_time,
             "trip_length": self.trip_length,
-            "carbon_footprint": self.carbon_footprint,
-            "nr_passengers": self.nr_passengers,
             "transport_mode": self.transport_mode,
-            "start_loc": self.start_loc,
-            "end_loc": self.end_loc,
-            "deleted": self.deleted,
             "received_at": self.received_at,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
         }
 
     def __str__(self):

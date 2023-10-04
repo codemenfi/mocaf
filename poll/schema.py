@@ -751,6 +751,9 @@ class DelTrip(graphene.Mutation, AuthenticatedDeviceNode):
         if tripObj.approved == True:
             raise GraphQLError("Trip is allready approved", [info])
 
+        if tripObj.original_trip == True:
+            tripObj.save_original_trip()
+
         tripObj.deleteTrip()
 
         return dict(ok=True)
@@ -782,6 +785,9 @@ class DelTrips(graphene.Mutation, AuthenticatedDeviceNode):
 
             if tripObj.approved == True:
                 raise GraphQLError("Trip is allready approved", [info])
+
+            if tripObj.original_trip == True:
+                tripObj.save_original_trip()
 
             tripObj.deleteTrip()
 
@@ -820,6 +826,9 @@ class DelLeg(graphene.Mutation, AuthenticatedDeviceNode):
                 legObj = Legs.objects.get(trip=tripObj, pk=leg_id)
 
                 tripObjChange = False
+
+                if tripObj.original_trip == True:
+                    tripObj.save_original_trip()
 
                 if tripObj.start_time == legObj.start_time:
                     tripObj.start_time = legObj.end_time
@@ -876,6 +885,9 @@ class JoinTrip(graphene.Mutation, AuthenticatedDeviceNode):
                     raise GraphQLError("Trip is deleted", [info])
 
                 tripObjChange = False
+
+                if tripKeepObj.original_trip == True:
+                    tripKeepObj.save_original_trip()
 
                 if tripKeepObj.start_time > tripRemoveObj.start_time:
                     tripKeepObj.start_time = tripRemoveObj.start_time
@@ -949,6 +961,9 @@ class SplitTrip(graphene.Mutation, AuthenticatedDeviceNode):
                         newStartTime = legs.start_time
 
                     newEndTime = legs.end_time
+
+                if oldTripObj.original_trip == True:
+                    oldTripObj.save_original_trip()
 
                 oldTripObj.end_time = lastLeg.end_time
                 oldTripObj.save()
