@@ -64,7 +64,7 @@ def parse_question_answers(answers_json):
     if type(answers_json) is str:
         answers_json = json.loads(answers_json)
 
-    return answers_json
+    return None
 
 
 def export_survey_trips(survey):
@@ -108,18 +108,20 @@ def export_survey_trips(survey):
         worksheet.write(row, col + 8, trip.length)
 
         back_questions = parse_question_answers(trip.partisipant.back_question_answers)
-        for question in back_questions:
-            key = question["questionId"]
-            value = question["answer"]
-            worksheet.write(row, question_columns[key] + 11, value)
+        if back_questions:
+            for question in back_questions:
+                key = question["questionId"]
+                value = question["answer"]
+                worksheet.write(row, question_columns[key] + 11, value)
 
         feeling_questions = parse_question_answers(
             trip.partisipant.feeling_question_answers
         )
-        for question in feeling_questions:
-            key = question["questionId"]
-            value = question["answer"]
-            worksheet.write(row, question_columns[key] + 11, value)
+        if feeling_questions:
+            for question in feeling_questions:
+                key = question["questionId"]
+                value = question["answer"]
+                worksheet.write(row, question_columns[key] + 11, value)
 
         row += 1
 
