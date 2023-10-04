@@ -314,16 +314,16 @@ class SurveyTripGenerator:
             Device.objects.annotate(
                 last_leg_received_at=Max('partisipants__trips__legs__received_at'),
                 last_leg_end_time=Max('partisipants__trips__legs__end_time'),
-                last_processed_data_received_at=Max('partisipants__last_processed_data_received_at'),
+                survey_last_processed_data_received_at=Max('partisipants__last_processed_data_received_at'),
             )
-            .values('uuid', 'last_leg_received_at', 'last_leg_end_time', 'last_processed_data_received_at')
+            .values('uuid', 'last_leg_received_at', 'last_leg_end_time', 'survey_last_processed_data_received_at')
             .filter(uuid__in=uuids)
         )
         dev_by_uuid = {
             x['uuid']: dict(
                 last_leg_received_at=x['last_leg_received_at'],
                 last_leg_end_time=x['last_leg_end_time'],
-                last_data_processed_at=x['last_processed_data_received_at'],
+                last_data_processed_at=x['survey_last_processed_data_received_at'],
             )
             for x in devices
         }
