@@ -417,6 +417,7 @@ class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
             start_municipality=start_municipality,
             end_municipality=end_municipality,
             purpose=purpose,
+            original_trip=False,
         )
 
         trip.save()
@@ -485,6 +486,9 @@ class AddLeg(graphene.Mutation, AuthenticatedDeviceNode):
                 if end_loc != "":
                     leg.end_loc = PointModelType(end_loc)
 
+                if leg.trip.original_trip == True:
+                    leg.trip.save_original_trip()
+
                 leg.save()
 
         except DatabaseError:
@@ -545,6 +549,9 @@ class EditLeg(graphene.Mutation, AuthenticatedDeviceNode):
 
                 if end_loc != "":
                     leg.end_loc = PointModelType(end_loc)
+
+                if leg.trip.original_trip == True:
+                    leg.trip.save_original_trip()
 
                 leg.save()
 
@@ -1067,49 +1074,24 @@ class EditTrip(graphene.Mutation, AuthenticatedDeviceNode):
         elif trip.deleted == True:
             raise GraphQLError("Trip is deleted", [info])
 
-        if trip.original_trip == False or (start_time_tz == "" and end_time_tz == ""):
-            if start_time_tz != "":
-                trip.start_time = start_time_tz
-            if end_time_tz != "":
-                trip.end_time = end_time_tz
-            if purpose != "":
-                trip.purpose = purpose
-            if start_municipality != "":
-                trip.start_municipality = start_municipality
-            if end_municipality != "":
-                trip.end_municipality = end_municipality
-            if approved != "":
-                trip.approved = approved
-            trip.save()
-        else:
-            new_trip = Trips()
+        if trip.original_trip == True:
+            trip.save_original_trip()
 
-            new_trip.original_trip = False
-            new_trip.partisipant = trip.partisipant
-            new_trip.start_time = trip.start_time
-            new_trip.end_time = trip.end_time
-            new_trip.purpose = trip.purpose
-            new_trip.start_municipality = trip.start_municipality
-            new_trip.end_municipality = trip.end_municipality
-
-            if start_time_tz != "":
-                new_trip.start_time = start_time_tz
-            if end_time_tz != "":
-                new_trip.end_time = end_time_tz
-            if purpose != "":
-                new_trip.purpose = purpose
-            if start_municipality != "":
-                new_trip.start_municipality = start_municipality
-            if end_municipality != "":
-                new_trip.end_municipality = end_municipality
-            if approved != "":
-                new_trip.approved = approved
-
-            new_trip.save()
-
-            legs = Legs.objects.filter(trip=trip_id)
-            legs.update(trip=new_trip)
-            trip.deleteTrip()
+        # if trip.original_trip == False or (start_time_tz == "" and end_time_tz == ""):
+        if start_time_tz != "":
+            trip.start_time = start_time_tz
+        if end_time_tz != "":
+            trip.end_time = end_time_tz
+        if purpose != "":
+            trip.purpose = purpose
+        if start_municipality != "":
+            trip.start_municipality = start_municipality
+        if end_municipality != "":
+            trip.end_municipality = end_municipality
+        if approved != "":
+            trip.approved = approved
+        trip.original_trip = False
+        trip.save()
 
         return dict(ok=okVal)
 
@@ -1220,8 +1202,9 @@ class Query(graphene.ObjectType):
         if not dev:
             raise GraphQLError("Authentication required", [info])
 
-        return (SurveyInfo.objects
-                .get(start_day__lte=selectedDate + timedelta(days=7), end_day__gte=selectedDate))
+        return SurveyInfo.objects.get(
+            start_day__lte=selectedDate + timedelta(days=7), end_day__gte=selectedDate
+        )
 
     def resolve_pollSurveyInfo(root, info):
         dev = info.context.device

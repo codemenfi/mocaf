@@ -270,14 +270,18 @@ class SurveyTripGenerator:
         if device is None:
             raise GeneratorError('Device %s not found' % uuid)
 
+        partisipant = Partisipants.objects.filter(device=device).order_by("-registered_to_survey_at").first()
+        if partisipant is None:
+            raise GeneratorError('No partisipant for device %s' % uuid)
+
         device._default_variants = {x.mode: x.variant for x in device.default_mode_variants.all()}
 
         pc = PerfCounter('update trips for %s' % uuid, show_time_to_last=True)
         df = read_locations(connection, uuid, start_time=start_time, end_time=end_time)
         if df is None or not len(df):
             if generation_started_at is not None:
-                device.last_processed_data_received_at = generation_started_at
-                device.save(update_fields=['last_processed_data_received_at'])
+                partisipant.last_processed_data_received_at = generation_started_at
+                partisipant.save(update_fields=['last_processed_data_received_at'])
             return
         pc.display('read done, got %d rows' % len(df))
 
@@ -290,8 +294,8 @@ class SurveyTripGenerator:
                 scope.clear()
 
         if generation_started_at is not None:
-            device.last_processed_data_received_at = generation_started_at
-            device.save(update_fields=['last_processed_data_received_at'])
+            partisipant.last_processed_data_received_at = generation_started_at
+            partisipant.save(update_fields=['last_processed_data_received_at'])
         transaction.commit()
         pc.display('trips generated')
 
@@ -310,6 +314,7 @@ class SurveyTripGenerator:
             Device.objects.annotate(
                 last_leg_received_at=Max('partisipants__trips__legs__received_at'),
                 last_leg_end_time=Max('partisipants__trips__legs__end_time'),
+                last_processed_data_received_at=Max('partisipants__last_processed_data_received_at'),
             )
             .values('uuid', 'last_leg_received_at', 'last_leg_end_time', 'last_processed_data_received_at')
             .filter(uuid__in=uuids)
