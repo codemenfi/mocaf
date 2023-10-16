@@ -86,6 +86,13 @@ def export_survey_trips_json(survey):
             approved=True,
         )
 
+        unapproved = Trips.objects.filter(
+            start_time__date__gte=F("partisipant__start_date"),
+            start_time__date__lte=F("partisipant__end_date"),
+            deleted=False,
+            approved=False,
+        ).count()
+
         trips_data = list()
         for trip in trips:
             trip_data = trip.to_json()
@@ -102,12 +109,13 @@ def export_survey_trips_json(survey):
             trips_data.append(trip_data)
 
         partisipant_data["trips"] = trips_data
+        partisipant_data["unapproved_trips_count"] = unapproved
         if partisipant.back_question_answers:
-            partisipant_data["back_questions"] = parse_question_answers(
+            partisipant_data["back_questions_1"] = parse_question_answers(
                 partisipant.back_question_answers
             )
         if partisipant.feeling_question_answers:
-            partisipant_data["feeling_questions"] = parse_question_answers(
+            partisipant_data["back_questions_2"] = parse_question_answers(
                 partisipant.feeling_question_answers
             )
 
