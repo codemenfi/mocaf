@@ -673,7 +673,7 @@ class ReminderNotificationTask(NotificationTask):
                                   .values('device'))
 
         notification_period_over = (Partisipants.objects
-                                  .annotate(last_notification_day=ExpressionWrapper(F("end_date") + datetime.timedelta(days=3), output_field=DateField()))
+                                  .annotate(last_notification_day=ExpressionWrapper(F("end_date") + datetime.timedelta(days=7), output_field=DateField()))
                                   .filter(last_notification_day__lt=self.now)
                                   .values('device'))
 
