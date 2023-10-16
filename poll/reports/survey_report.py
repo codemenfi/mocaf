@@ -93,15 +93,23 @@ def export_survey_trips_json(survey):
             for leg in trip.legs_set.filter(deleted=False):
                 legs_data.append(leg.to_json())
             trip_data["legs"] = legs_data
+
+            trip_data["original_trip_data"] = None
+            if trip.original_trip_data:
+                trip_data["original_trip_data"] = json.loads(trip.original_trip_data)
+
             trips_data.append(trip_data)
 
         partisipant_data["trips"] = trips_data
-        partisipant_data["back_questions"] = parse_question_answers(
-            partisipant.back_question_answers
-        )
-        partisipant_data["feeling_questions"] = parse_question_answers(
-            partisipant.feeling_question_answers
-        )
+        if partisipant.back_question_answers:
+            partisipant_data["back_questions"] = parse_question_answers(
+                partisipant.back_question_answers
+            )
+        if partisipant.feeling_question_answers:
+            partisipant_data["feeling_questions"] = parse_question_answers(
+                partisipant.feeling_question_answers
+            )
+
         partisipant_data["approved"] = partisipant.approved
 
         data.append(partisipant_data)
