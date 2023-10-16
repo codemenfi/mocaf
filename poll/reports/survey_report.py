@@ -1,7 +1,11 @@
 from django.db.models import F
-from poll.models import Trips
+from poll.models import Trips, Partisipants
 import xlsxwriter
 import json
+
+import codecs
+
+from trips.tests.conftest import partisipants
 
 
 def partisipant_trips(partisipant):
@@ -65,6 +69,45 @@ def parse_question_answers(answers_json):
         answers_json = json.loads(answers_json)
 
     return None
+
+
+def export_survey_trips_json(survey):
+    partisipants = Partisipants.objects.filter(survey_info=survey)
+
+    data = list()
+    for partisipant in partisipants:
+        partisipant_data = dict()
+        partisipant_data["partisipant"] = partisipant.pk
+
+        trips = Trips.objects.filter(
+            start_time__date__gte=F("partisipant__start_date"),
+            start_time__date__lte=F("partisipant__end_date"),
+            deleted=False,
+            approved=True,
+        )
+
+        trips_data = list()
+        for trip in trips:
+            trip_data = trip.to_json()
+            legs_data = list()
+            for leg in trip.legs_set.filter(deleted=False):
+                legs_data.append(leg.to_json())
+            trip_data["legs"] = legs_data
+            trips_data.append(trip_data)
+
+        partisipant_data["trips"] = trips_data
+        partisipant_data["back_questions"] = parse_question_answers(
+            partisipant.back_question_answers
+        )
+        partisipant_data["feeling_questions"] = parse_question_answers(
+            partisipant.feeling_question_answers
+        )
+        partisipant_data["approved"] = partisipant.approved
+
+        data.append(partisipant_data)
+
+    with open("survey_trips.json", "w", encoding="UTF-8") as outfile:
+        json.dump(data, outfile, indent=4, ensure_ascii=False)
 
 
 def export_survey_trips(survey):
@@ -136,14 +179,3 @@ def export_survey_trips(survey):
     workbook.close()
 
     return workbook
-
-    # start_time = models.DateTimeField()
-    # end_time = models.DateTimeField()
-    #
-    # trip_length = models.FloatField(null=True)
-    #
-    # carbon_footprint = models.FloatField(null=True)
-    #
-    # nr_passengers = models.IntegerField(null=True)
-    #
-    # transport_mode = models.CharField(max_length=20, null=True)
