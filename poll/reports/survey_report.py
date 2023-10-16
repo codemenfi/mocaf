@@ -1,5 +1,5 @@
 from django.db.models import F
-from poll.models import Trips, Partisipants
+from poll.models import Trips, Partisipants, OriginalTrip
 import xlsxwriter
 import json
 
@@ -95,8 +95,9 @@ def export_survey_trips_json(survey):
             trip_data["legs"] = legs_data
 
             trip_data["original_trip_data"] = None
-            if trip.original_trip_data:
-                trip_data["original_trip_data"] = json.loads(trip.original_trip_data)
+            original_trip_data = OriginalTrip.objects.filter(trip=trip).first()
+            if original_trip_data:
+                trip_data["original_trip_data"] = json.loads(original_trip_data)
 
             trips_data.append(trip_data)
 
