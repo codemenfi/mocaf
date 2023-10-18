@@ -181,14 +181,14 @@ CELERY_BEAT_SCHEDULE = {
            'expires':  23 * 60 * 60,  #  23 hours
        }
     },
-    'clean-up-stale-data': {
-        'task': 'trips_ingest.tasks.cleanup',
-        'args': (),
-        'schedule': crontab(hour=6, minute=15),
-        'options': {
-            'expires': 1 * 60 * 60,  # 1 hour
-        }
-    },
+    # 'clean-up-stale-data': {
+    #     'task': 'trips_ingest.tasks.cleanup',
+    #     'args': (),
+    #     'schedule': crontab(hour=6, minute=15),
+    #     'options': {
+    #         'expires': 1 * 60 * 60,  # 1 hour
+    #     }
+    # },
     # TODO: Update the following.
     # 'send-welcome-notifications': {
     #     'task': 'notifications.tasks.send_notifications',
