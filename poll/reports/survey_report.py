@@ -3,10 +3,6 @@ from poll.models import Trips, Partisipants, OriginalTrip
 import xlsxwriter
 import json
 
-import codecs
-
-from trips.tests.conftest import partisipants
-
 
 def partisipant_trips(partisipant):
     return Trips.objects.filter(
@@ -65,10 +61,33 @@ question_columns = {
 
 
 def parse_question_answers(answers_json):
-    if type(answers_json) is str:
-        answers_json = json.loads(answers_json)
+    try:
+        if type(answers_json) is str:
+            answers_json = json.loads(answers_json)
+            return answers_json
+    except:
+        return None
 
     return None
+
+
+def serializer_trips(trips):
+    trips_data = list()
+    for trip in trips:
+        trip_data = trip.to_json()
+        legs_data = list()
+        for leg in trip.legs_set.filter(deleted=False):
+            legs_data.append(leg.to_json())
+        trip_data["legs"] = legs_data
+
+        trip_data["original_trip_data"] = None
+        original_trip_data = OriginalTrip.objects.filter(trip=trip).first()
+        if original_trip_data:
+            trip_data["original_trip_data"] = json.loads(original_trip_data.data)
+
+        trips_data.append(trip_data)
+
+    return trips_data
 
 
 def export_survey_trips_json(survey):
@@ -80,10 +99,18 @@ def export_survey_trips_json(survey):
         partisipant_data["partisipant"] = partisipant.pk
 
         trips = Trips.objects.filter(
+            partisipant=partisipant,
             start_time__date__gte=F("partisipant__start_date"),
             start_time__date__lte=F("partisipant__end_date"),
             deleted=False,
             approved=True,
+        )
+
+        deleted_trips = Trips.objects.filter(
+            partisipant=partisipant,
+            start_time__date__gte=F("partisipant__start_date"),
+            start_time__date__lte=F("partisipant__end_date"),
+            deleted=True,
         )
 
         unapproved = Trips.objects.filter(
@@ -93,22 +120,11 @@ def export_survey_trips_json(survey):
             approved=False,
         ).count()
 
-        trips_data = list()
-        for trip in trips:
-            trip_data = trip.to_json()
-            legs_data = list()
-            for leg in trip.legs_set.filter(deleted=False):
-                legs_data.append(leg.to_json())
-            trip_data["legs"] = legs_data
-
-            trip_data["original_trip_data"] = None
-            original_trip_data = OriginalTrip.objects.filter(trip=trip).first()
-            if original_trip_data:
-                trip_data["original_trip_data"] = json.loads(original_trip_data)
-
-            trips_data.append(trip_data)
+        trips_data = serializer_trips(trips)
+        deleted_trips_data = serializer_trips(deleted_trips)
 
         partisipant_data["trips"] = trips_data
+        partisipant_data["deleted_trips"] = deleted_trips_data
         partisipant_data["unapproved_trips_count"] = unapproved
         if partisipant.back_question_answers:
             partisipant_data["back_questions_1"] = parse_question_answers(
@@ -119,7 +135,7 @@ def export_survey_trips_json(survey):
                 partisipant.feeling_question_answers
             )
 
-        partisipant_data["approved"] = partisipant.approved
+        partisipant_data["approved"] = partisipant.approved or trips.count() > 0
 
         data.append(partisipant_data)
 
