@@ -83,7 +83,7 @@ def serializer_trips(trips):
         trip_data["original_trip_data"] = None
         original_trip_data = OriginalTrip.objects.filter(trip=trip).first()
         if original_trip_data:
-            trip_data["original_trip_data"] = json.loads(original_trip_data.data)
+            trip_data["original_trip_data"] = original_trip_data.data
 
         trips_data.append(trip_data)
 
@@ -114,6 +114,7 @@ def export_survey_trips_json(survey):
         )
 
         unapproved = Trips.objects.filter(
+            partisipant=partisipant,
             start_time__date__gte=F("partisipant__start_date"),
             start_time__date__lte=F("partisipant__end_date"),
             deleted=False,
