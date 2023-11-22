@@ -125,8 +125,20 @@ ATYPE_REVERSE = {
 ALL_ATYPES = [
     'still', 'on_foot', 'on_bicycle', 'in_vehicle', 'car', 'bus', 'tram', 'train', 'other', 'unknown',
 ]
+NOT_SWITCH_ATYPES = [
+    'on_bicycle', 'in_vehicle', 'car', 'bus', 'tram', 'train',
+]
 ATYPE_STILL = ALL_ATYPES.index('still')
 ATYPE_UNKNOWN = ALL_ATYPES.index('unknown')
+
+ATYPE_BICYCLE = ALL_ATYPES.index('on_bicycle')
+ATYPE_VEHICLE = ALL_ATYPES.index('in_vehicle')
+ATYPE_BUS = ALL_ATYPES.index('bus')
+ATYPE_CAR = ALL_ATYPES.index('car')
+ATYPE_TRAM = ALL_ATYPES.index('tram')
+ATYPE_TRAIN = ALL_ATYPES.index('train')
+
+
 
 IDX_MAPPING = {idx: ATYPE_REVERSE[x] for idx, x in enumerate(transport_modes.keys())}
 
@@ -222,7 +234,7 @@ def get_transit_locations(conn, uid: str, start_time: datetime, end_time: dateti
 
 
 @numba.njit(cache=True)
-def filter_legs(time, x, y, atype, distance, loc_error, speed):
+def filter_legs(time, x, y, atype, loc_error, speed):
     n_rows = len(time)
 
     last_atype_start = 0
@@ -244,21 +256,29 @@ def filter_legs(time, x, y, atype, distance, loc_error, speed):
     max_leg_id = 0
     current_leg = -1
     prev = 0
+
+    not_switch = [
+    ATYPE_BICYCLE, ATYPE_VEHICLE, ATYPE_CAR, ATYPE_TRAM, ATYPE_TRAIN, ATYPE_BUS,
+    ]
+
     for i in range(n_rows):
         # If we're in the middle of a trip and we have only a couple of atypes
         # for a different mode, change them to match the others.
         if i > 0 and i < n_rows - MIN_SAMPLES_PER_LEG:
             if atype_counts[i] <= 3 and atype_counts[i - 1] > MIN_SAMPLES_PER_LEG:
                 atype[i] = atype[i - 1]
-                atype_counts[i] = atype_counts[i - 1]
+                atype_counts[i] += atype_counts[i - 1]
 
-        if i == 0 or atype[i] != atype[i - 1]:
+        if i != 0 and atype[i] != atype[i - 1] and atype[i] in not_switch and atype[i - 1] in not_switch:
+            atype[i] = atype[i - 1]
+            atype_counts[i] += atype_counts[i - 1]
+
+        if i == 0 or atype[i] != atype[i - 1]: #Transport mode has change 
             if atype_counts[i] >= MIN_SAMPLES_PER_LEG and atype[i] != ATYPE_STILL and atype[i] != ATYPE_UNKNOWN:
                 # Enough good samples in this leg? We'll keep it.
                 if i > 0:
                     max_leg_id += 1
                 current_leg = max_leg_id
-                distance[i] = 0
                 prev = i
             else:
                 # Not enough? Amputation.
@@ -281,11 +301,60 @@ def filter_legs(time, x, y, atype, distance, loc_error, speed):
         # drop the previous sample as invalid.
         if not np.isnan(speed[i]) and abs(calc_speed - speed[i]) > 30:
             leg_ids[i - 1] = -1
-            distance[i] = 0
-        else:
-            distance[i] = dist
+
+            
+
         leg_ids[i] = current_leg
         prev = i
+
+    last_good_sample = -1
+    last_good_atype = -1
+    last_good_leg = -1
+    minus_max_leg = 0
+
+    for i in range(n_rows):
+        if i == 0 or leg_ids[i] == -1:
+            continue
+
+        if leg_ids[i - 1] == -1 and last_good_sample != -1 and last_good_atype == atype[i] and (last_good_leg + minus_max_leg) != leg_ids[i]:
+            minus_max_leg += 1
+
+        leg_ids[i] -= minus_max_leg
+
+        last_good_sample = i
+        last_good_atype = atype[i]
+        last_good_leg = leg_ids[i]
+        
+# If we want limit ways like three
+#    leg_ways_atype = {}
+#    leg_ways_atype_counts = {}
+#    leg_ways_i = {}
+# 
+#    smallest_count = 0
+#    smallest_i = 0
+#    for i in range(n_rows):
+#        if leg_ids[i] == -1 or leg_ids[i] == 0:
+#            continue
+#
+#        leg_ways_atype[i] = atype[i]
+#        leg_ways_atype_counts[i] = atype_counts[i]
+#        leg_ways_i[i] = i
+#
+#        if smallest_count == 0 or smallest_count > atype_counts[i]:
+#            smallest_count = atype_counts[i]
+#            smallest_i = i
+#
+#        if len(leg_ways_atype) > 2:
+#            leg_ways_atype.pop(smallest_i)
+#            leg_ways_atype_counts.pop(smallest_i)
+#            leg_ways_i.pop(smallest_i)
+#            leg_ids[smallest_i] = -1
+#            smallest_count = 0
+#
+#            for leg in leg_ways_i:
+#                if smallest_count == 0 or smallest_count > leg_ways_atype_counts[leg]:
+#                    smallest_count = leg_ways_atype_counts[leg]
+#                    smallest_i = leg
 
     return leg_ids
 
@@ -310,8 +379,8 @@ def split_trip_legs(conn, uid, df, include_all=False):
     df['calc_speed'] = df.speed
     df['int_atype'] = df.atype.map(ALL_ATYPES.index).astype(int)
     df['leg_id'] = filter_legs(
-        time=df.epoch_ts.to_numpy(), x=df.x.to_numpy(), y=df.y.to_numpy(), atype=df.int_atype.to_numpy(),
-        distance=df.distance.to_numpy(), loc_error=df.loc_error.to_numpy(), speed=df.speed.to_numpy(dtype=np.float64, na_value=np.nan)
+        time=df.epoch_ts.to_numpy(), x=df.x.to_numpy(), y=df.y.to_numpy(), atype=df.int_atype.to_numpy(), 
+        loc_error=df.loc_error.to_numpy(), speed=df.speed.to_numpy(dtype=np.float64, na_value=np.nan)
     )
     df.atype = df.int_atype.map(lambda x: ALL_ATYPES[x])
 
