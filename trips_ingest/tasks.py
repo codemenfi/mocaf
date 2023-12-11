@@ -3,6 +3,7 @@ import logging
 from celery import shared_task
 from django.utils import timezone
 
+from transitrt.models import VehicleLocation
 from .processor import EventProcessor
 from .models import Location, ReceiveData, SensorSample
 from trips.models import LegLocation
@@ -44,5 +45,8 @@ def cleanup():
     ret = ReceiveData.objects.filter(received_at__lte=two_weeks_ago).delete()
     logger.info('Ingest receive data cleaned: %s' % str(ret))
 
-    SensorSample.objects.filter(time__lte=two_weeks_ago).delete()
+    ret = SensorSample.objects.filter(time__lte=two_weeks_ago).delete()
     logger.info('Sensor samples cleaned: %s' % str(ret))
+
+    ret = VehicleLocation.objects.filter(time__lte=two_weeks_ago).delete()
+    logger.info('Vehicle locations cleaned: %s' % str(ret))
