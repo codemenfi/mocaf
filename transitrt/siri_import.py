@@ -88,6 +88,10 @@ class SiriImporter(TransitRTImporter):
             return
         data = data['VehicleActivity']
 
+        if data is None:
+            self.logger.info('No vehicle data found')
+            return
+
         for act_in in data:
             act = self.import_vehicle_activity(act_in)
             if not act:
