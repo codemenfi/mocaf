@@ -33,9 +33,9 @@ def cleanup():
     logger.info('Leg locations cleaned: %s' % str(ret))
     logger.info('Leg locations cleaned: %s' % str(ret1))
     # Drop stale chunks in hypertables
-    with connection.cursor() as cursor:
-        cursor.execute('''SELECT drop_chunks('trips_ingest_location', older_than => interval '2 week')''')
-        cursor.execute('''SELECT drop_chunks('transitrt_vehiclelocation', older_than => interval '2 week')''')
+    #with connection.cursor() as cursor:
+    #    cursor.execute('''SELECT drop_chunks('trips_ingest_location', older_than => interval '2 week')''')
+    #    cursor.execute('''SELECT drop_chunks('transitrt_vehiclelocation', older_than => interval '2 week')''')
 
     logger.info('Hypertables cleaned')
 
