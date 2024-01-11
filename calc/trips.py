@@ -19,7 +19,7 @@ MINS_BETWEEN_TRIPS = 20
 MIN_DISTANCE_MOVED_IN_TRIP = 200
 MIN_SAMPLES_PER_LEG = 15
 
-DAYS_TO_FETCH = 30
+DAYS_TO_FETCH = 5
 LOCAL_2D_CRS = 3067
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,6 @@ def read_locations(conn, uid, start_time=None, end_time=None, include_all=False)
         else:
             start_time = (date.today() - timedelta(days=14)).isoformat()
 
-    print(start_time)
     params = dict(uuid=uid, start_time=start_time, end_time=end_time)
     query = 'EXECUTE read_locations(%(uuid)s, %(start_time)s, %(end_time)s)'
     df = pd.read_sql_query(query, conn, params=params)
@@ -84,7 +83,6 @@ def read_locations(conn, uid, start_time=None, end_time=None, include_all=False)
 
     # Filter out trips that do not have enough low location error samples
     # far enough from the trip center point.
-    print(df)
     good_samples = df[df.loc_error < 100]
     if not len(good_samples):
         print('No good samples, returning')
