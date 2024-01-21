@@ -29,7 +29,7 @@ def get_filter(force, drag):
 filters = {
     'still': get_filter(0.5, 1.0),
     'walking': get_filter(2.0, 0.6),
-    'cycling': get_filter(3.0, 0.06),
+    'cycling': get_filter(3.2, 0.03),
     'driving': get_filter(3.5, 0.008),
 }
 
@@ -130,7 +130,7 @@ def filter_trajectory(traj):
         # but probably doesn't matter much here. So just double the "in_vehicle"
         # class prob est if this would be an "outlier"
         VEHICLE_GIS_PROB_FACTOR = 2
-        if z.vehicle_way_distance < 2*z.location_std:
+        if z.vehicle_way_distance < z.location_std / 2:
             state_prob_ests[-1] *= VEHICLE_GIS_PROB_FACTOR
         else:
             state_prob_ests[-1] /= VEHICLE_GIS_PROB_FACTOR
@@ -140,6 +140,7 @@ def filter_trajectory(traj):
         # TODO: Try to get the M into the prediction step. Mostly because
         # it feels wrong here.
         imm.update(measurement, R, M, state_prob_ests=state_prob_ests)
+        #imm.update(measurement, R, M, state_prob_ests=None)
         ms.append(np.copy(imm.x))
         Ss.append(np.copy(imm.P))
         state_probs.append(np.copy(imm.mu))

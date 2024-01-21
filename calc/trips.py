@@ -291,9 +291,9 @@ def filter_legs(time, x, y, atype, distance, loc_error, speed):
 
 
 MAX_DISTANCE_BY_TRANSIT_TYPE = {
-    0: 50,  # tram
+    0: 80,  # tram
     2: 500, # train
-    3: 30,  # bus
+    3: 60,  # bus
 }
 ATYPE_BY_TRANSIT_TYPE = {
     0: 'tram',
