@@ -271,12 +271,10 @@ class TripGenerator:
                 logger.info('Trips have user corrected elements, not deleting')
                 return
 
-        # TODO: delete survey trips
         count = device.trips.filter(legs__in=legs).delete()
         pc.display('deleted')
 
         # Create trips
-        survey_enabled = Device.objects.get(uuid=uuid).survey_enabled
         mocaf_enabled = Device.objects.get(uuid=uuid).mocaf_enabled
 
         if mocaf_enabled:
@@ -299,32 +297,6 @@ class TripGenerator:
             trip.update_device_carbon_footprint()
             pc.display('trip %d save done' % trip.id)
             
-        # partisipant = Partisipants.objects.filter(device=device).first()
-        # if survey_enabled and partisipant:
-        #     all_rows_survey = []
-        #     survey_trip = Trips(start_time=min_time, end_time=max_time, partisipant_id=partisipant.id)
-        #     survey_trip.save()
-        #     pc.display('survey trip %d saved' % survey_trip.id)
-        #     first_leg = True
-        #     leg_ids = df.leg_id.unique()
-        #     leg_df = None
-        #     last_ts = df.time.min()
-        #     for leg_id in leg_ids:
-        #         leg_df = df[df.leg_id == leg_id]
-        #
-        #         if first_leg:
-        #             first_leg = False
-        #             self.save_survey_trip_town(survey_trip, leg_df, True)
-        #
-        #         leg_rows_survey, last_ts = self.save_survey_leg(survey_trip, leg_df, last_ts, pc)
-        #         all_rows_survey += leg_rows_survey
-        #
-        #     if not first_leg and leg_df is not None:
-        #         self.save_survey_trip_town(survey_trip, leg_df, False)
-        #
-        #     pc.display('generated %d survey legs' % len(leg_ids))
-        #     self.insert_survey_leg_locations(all_rows_survey)
-        #     pc.display('survey trip %d save done' % survey_trip.id)
 
 
     def begin(self):
