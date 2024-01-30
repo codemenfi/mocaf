@@ -130,7 +130,7 @@ def filter_trajectory(traj):
         # but probably doesn't matter much here. So just double the "in_vehicle"
         # class prob est if this would be an "outlier"
         VEHICLE_GIS_PROB_FACTOR = 2
-        if z.vehicle_way_distance < z.location_std / 2:
+        if z.vehicle_way_distance < z.location_std ** 2:
             state_prob_ests[-1] *= VEHICLE_GIS_PROB_FACTOR
         else:
             state_prob_ests[-1] /= VEHICLE_GIS_PROB_FACTOR
