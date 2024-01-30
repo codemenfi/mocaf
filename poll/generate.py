@@ -270,7 +270,7 @@ class SurveyTripGenerator:
         if device is None:
             raise GeneratorError('Device %s not found' % uuid)
 
-        partisipant = Partisipants.objects.filter(device=device, survey_info__start_date__lte=start_time, survey_info__end_time__gte=start_time).order_by("-registered_to_survey_at").first()
+        partisipant = Partisipants.objects.filter(device=device, survey_info__start_date__lte=start_time, survey_info__end_date__gte=start_time).order_by("-registered_to_survey_at").first()
         if partisipant is None:
             return
 
