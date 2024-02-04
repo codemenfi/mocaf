@@ -26,8 +26,8 @@ def cleanup():
     logger.info('Cleaning up')
     yesterday = timezone.now() - timedelta(days=1)
     # Delete locations that user has marked for deletion
-    #ret = Location.objects.filter(deleted_at__isnull=False).filter(deleted_at__lte=yesterday).delete()
-    #logger.info('Locations cleaned: %s' % str(ret))
+    ret = Location.objects.filter(deleted_at__isnull=False).filter(deleted_at__lte=yesterday).delete()
+    logger.info('Locations cleaned: %s' % str(ret))
     # Delete expired leg locations
     ret = LegLocation.objects.expired(buffer_hours=48).delete()
     ret1 = LegsLocation.objects.expired(buffer_hours=48).delete()

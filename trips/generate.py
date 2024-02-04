@@ -5,6 +5,7 @@ import sentry_sdk
 import geopandas as gpd
 import requests
 
+from calc.personal_emphasis import user_mode_prob_ests, transform_probs_to_trajectory_probs
 from calc.trips import (
     LOCAL_2D_CRS, read_locations, read_uuids, split_trip_legs, filter_trips
 )
@@ -304,8 +305,11 @@ class TripGenerator:
 
     def process_trip(self, device, df, uuid):
         pc = PerfCounter('process_trip')
+        # get initial prob ests from user trips
+        initial_prob_ests = user_mode_prob_ests(device.id)
+        initial_prob_ests_traj = transform_probs_to_trajectory_probs(initial_prob_ests)
         logger.info('%s: %s: trip with %d samples' % (str(device), df.time.min(), len(df)))
-        df = filter_trips(df)
+        df = filter_trips(df, initial_prob_ests_traj)
         pc.display('filter done')
 
         # Use the fixed versions of columns

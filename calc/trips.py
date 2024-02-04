@@ -131,7 +131,7 @@ ATYPE_UNKNOWN = ALL_ATYPES.index('unknown')
 IDX_MAPPING = {idx: ATYPE_REVERSE[x] for idx, x in enumerate(transport_modes.keys())}
 
 
-def filter_trips(df: pd.DataFrame):
+def filter_trips(df: pd.DataFrame, initial_state_prob_ests=None):
     out = df[['time', 'x', 'y', 'speed']].copy()
     s = df['time'].dt.tz_convert(None) - pd.Timestamp('1970-01-01')
     out['time'] = s / pd.Timedelta('1s')
@@ -142,7 +142,7 @@ def filter_trips(df: pd.DataFrame):
     out['vehicle_way_distance'] = df[['closest_car_way_dist', 'closest_rail_way_dist']].min(axis=1)
     out.loc[out.aconf == 1, 'aconf'] /= 2
 
-    ms, Ss, state_probs, most_likely_path, _ = filter_trajectory((r for i, r in out.iterrows()))
+    ms, Ss, state_probs, most_likely_path, _ = filter_trajectory((r for i, r in out.iterrows()), initial_state_prob_ests)
 
     x = ms[:, 0]
     y = ms[:, 1]
@@ -331,6 +331,7 @@ def split_trip_legs(conn, uid, df, include_all=False):
         leg_df = df[df.leg_id == leg_id].copy()
         if leg_df.iloc[0].atype != 'in_vehicle':
             continue
+
 
         try:
             transit_locs = get_transit_locations(conn, uid, leg_df.time.min(), leg_df.time.max())

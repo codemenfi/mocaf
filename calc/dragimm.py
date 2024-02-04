@@ -3,6 +3,9 @@ from .dragfilter import DragFilter
 from .IMM import IMMEstimator
 from scipy.linalg import expm
 import numba
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Just some very uninformative priors,
 # the mean is somewhere around central Tampere.
@@ -56,7 +59,7 @@ mean_state_duration = 5*60
 transition_rate = np.zeros((N_states, N_states)) + (1/mean_state_duration)/(N_states - 1)
 transition_rate[np.diag_indices(N_states)] = -1/mean_state_duration
 
-def filter_trajectory(traj):
+def filter_trajectory(traj, initial_state_prob_ests=None):
     # TODO: Smoothing!
     filts = [f() for f in filters.values()]
     # TODO: Could use some global average. Probably doesn't matter
@@ -118,11 +121,19 @@ def filter_trajectory(traj):
         # TODO: Is there more succint way of computing the full prob vector like this?
 
         state_prob_ests = np.ones(N_states)
+        #state_prob_ests = np.ones(N_states)
+
         if z.atype is not None:
             mode_state_prob = z.aconf
             leftover_prob = (1 - mode_state_prob)/(N_states - 1)
             state_prob_ests *= np.zeros(N_states) + leftover_prob
             state_prob_ests[filter_idx[z.atype]] = mode_state_prob
+        print(f"State prob ests: {state_prob_ests}")
+
+        if initial_state_prob_ests is not None:
+            state_prob_ests += np.array(initial_state_prob_ests) * 0.5
+            print(f"Initial state prob ests: {state_prob_ests}")
+            #state_prob_ests *= 0.5 # Adjust effect of initial state prob ests
 
         # Compute "GIS" probability of being on a vehicle way.
         # TODO! MEGASUPER HACKY 🤢!! We have nice distribution assupmptions and
@@ -139,6 +150,8 @@ def filter_trajectory(traj):
         
         # TODO: Try to get the M into the prediction step. Mostly because
         # it feels wrong here.
+        logger.info(f"State prob ests: {state_prob_ests}")
+        #print(f"State prob ests: {state_prob_ests}")
         imm.update(measurement, R, M, state_prob_ests=state_prob_ests)
         #imm.update(measurement, R, M, state_prob_ests=None)
         ms.append(np.copy(imm.x))
