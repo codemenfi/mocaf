@@ -487,29 +487,6 @@ if not locals().get('DATABASES', ''):
     }
 
 
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'simple': {
-            'format': '%(levelname)s %(message)s'
-        },
-    },
-    'handlers': {
-        'log_to_stdout': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'formatter': 'simple',
-            },
-        },
-    'loggers': {
-        'main': {
-            'handlers': ['log_to_stdout'],
-            'level': 'DEBUG',
-            'propagate': True,
-        }
-    }
-}
 
 #GDAL_LIBRARY_PATH=os.getenv('GDAL_LIB_PATH') #needed to run locally
 #GEOS_LIBRARY_PATH=os.getenv('GEOS_LIB_PATH') #needed to run locally
