@@ -203,7 +203,9 @@ class TransitRTImporter:
         transaction.set_autocommit(True)
 
     def perform_http_query(self):
-        resp = requests.get(self.http_url, timeout=(10, 10))
+        # set headers to avoid 403
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'}
+        resp = requests.get(self.http_url, timeout=(10, 10), headers=headers)
         resp.raise_for_status()
         return resp.content
 

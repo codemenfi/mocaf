@@ -80,7 +80,7 @@ SECRET_KEY = env('SECRET_KEY')
 TRANSITRT_IMPORTERS = {
     'tampere': {
         'agency_name': 'Nysse',
-        'url': 'http://data.itsfactory.fi/siriaccess/vm/json',
+        'url': 'https://data.itsfactory.fi/siriaccess/vm/json',
         'type': 'siri-rt',
         'frequency': 3,
     },
@@ -485,6 +485,8 @@ if not locals().get('DATABASES', ''):
             'USER': 'mocaf'
         }
     }
+
+
 
 #GDAL_LIBRARY_PATH=os.getenv('GDAL_LIB_PATH') #needed to run locally
 #GEOS_LIBRARY_PATH=os.getenv('GEOS_LIB_PATH') #needed to run locally
