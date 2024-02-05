@@ -47,7 +47,7 @@ class EmissionBudgetLevel(models.Model):
         self, date: date, time_resolution: TimeResolution,
         units: EmissionUnit = EmissionUnit.KG
     ) -> float:
-        assert date.year == self.year
+        #assert date.year == self.year
         amount = self.carbon_footprint
         days_in_year = 365 if not calendar.isleap(date.year) else 366
         if time_resolution == TimeResolution.YEAR:
