@@ -32,7 +32,7 @@ atype_to_traj = {
 
 def transform_probs_to_trajectory_probs(probs: typing.Dict[str, float]) -> typing.List[float]:
     """
-    Trajectory probs are a array of probabilities of being in each state.
+    Trajectory probs are an array of probabilities of being in each state.
     [still, walking, on_bicycle, in_vehicle]
     """
 
@@ -42,29 +42,19 @@ def transform_probs_to_trajectory_probs(probs: typing.Dict[str, float]) -> typin
         [], # on_bicycle
         []  # in_vehicle
     ]
-    print(probs)
     for key, value in probs.items():
-        print(key, value)
         idx = atype_to_traj[key]
         grouped_propbs[idx].append(value)
 
     return [sum(group) / len(group) for group in grouped_propbs]
 
 
-
-
 def similar_legs_by_location(device_id: int, start_loc: Point, end_loc: Point) -> QuerySet[Leg]:
     """
     Find legs that are similar to the given start and end locations.
     """
-    return Leg.objects.filter(trip__device__pk=device_id, start_loc__distance_lte=D(start_loc, m=100), end_log__distance_lte=D(end_loc, m=100))
+    return Leg.objects.filter(trip__device__pk=device_id, start_loc__distance_lte=(start_loc, D(m=100)), end_loc__distance_lte=(end_loc, D(m=100)))
 
-
-def similar_legs_by_length(device_id: int, start_loc: Point, end_loc: Point) -> typing.List[Leg]:
-    """
-    Find legs that are similar to the given start and end locations.
-    """
-    ...
 
 def user_mode_prob_ests(device_id: int) -> typing.Dict[str, float]:
     """
@@ -88,14 +78,19 @@ def calculate_mode_probs(legs: QuerySet[Leg]) -> typing.Dict:
     Calculate the percentages of each mode for the given legs.
     """
 
-    counts = legs.values("mode").order_by("mode").annotate(count=Count("id"))
+    counts = legs.values("mode", "mode__identifier").order_by("mode").annotate(count=Count("id"))
     total = sum(count["count"] for count in counts)
 
     modes = TransportMode.objects.all()
 
     probs = {}
     for mode in modes:
-        mode_prob = next((count["count"] / total for count in counts if count["mode"] == mode), 0)
+        count = next((count for count in counts if count["mode__identifier"] == mode.identifier), None)
+        if count is None:
+            mode_prob = 0
+        else:
+            mode_prob = count["count"] / total
+
         atypes = mode_to_atype[mode.identifier]
         for atype in atypes:
             probs[atype] = mode_prob

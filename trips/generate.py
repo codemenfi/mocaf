@@ -5,7 +5,8 @@ import sentry_sdk
 import geopandas as gpd
 import requests
 
-from calc.personal_emphasis import user_mode_prob_ests, transform_probs_to_trajectory_probs
+from calc.personal_emphasis import user_mode_prob_ests, transform_probs_to_trajectory_probs, similar_legs_by_location, \
+    calculate_mode_probs
 from calc.trips import (
     LOCAL_2D_CRS, read_locations, read_uuids, split_trip_legs, filter_trips
 )
@@ -145,10 +146,30 @@ class TripGenerator:
         # Ensure trips are ordered properly
         assert start.time >= last_ts and end.time >= last_ts
 
-        mode = self.atype_to_mode[df.iloc[0].atype]
+        # Check if similar legs exist, and if so, use the mode from them
+        similar_prob = None
+        if trip.device.personal_tuning_enabled:
+            similar_legs = similar_legs_by_location(trip.device.id, make_point(start.x, start.y), make_point(end.x, end.y))
+            if similar_legs:
+                similar_leg_props = calculate_mode_probs(similar_legs)
+                # convert dict to array of tuples
+                probs = [(k, v) for k, v in similar_leg_props.items()]
+                # sort by probability
+                probs.sort(key=lambda x: x[1], reverse=True)
+                prob_mode, prob_conf = probs[0]
+                # If 80% of similar legs have same mode, use that
+                if prob_conf > 0.8:
+                    similar_prob = prob_mode
+
+        if similar_prob:
+            print(f"Similar leg found with mode {similar_prob}")
+            mode = self.atype_to_mode[similar_prob]
+        else:
+            mode = self.atype_to_mode[df.iloc[0].atype]
+
         variant = default_variants.get(mode)
 
-       
+
         leg = Leg(
             trip=trip,
             mode=mode,
@@ -305,9 +326,11 @@ class TripGenerator:
 
     def process_trip(self, device, df, uuid):
         pc = PerfCounter('process_trip')
-        # get initial prob ests from user trips
-        initial_prob_ests = user_mode_prob_ests(device.id)
-        initial_prob_ests_traj = transform_probs_to_trajectory_probs(initial_prob_ests)
+        # get initial prob ests from users previous trips
+        initial_prob_ests_traj = None
+        if device.personal_tuning_enabled:
+            initial_prob_ests = user_mode_prob_ests(device.id)
+            initial_prob_ests_traj = transform_probs_to_trajectory_probs(initial_prob_ests)
         logger.info('%s: %s: trip with %d samples' % (str(device), df.time.min(), len(df)))
         df = filter_trips(df, initial_prob_ests_traj)
         pc.display('filter done')

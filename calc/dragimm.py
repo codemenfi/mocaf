@@ -128,11 +128,10 @@ def filter_trajectory(traj, initial_state_prob_ests=None):
             leftover_prob = (1 - mode_state_prob)/(N_states - 1)
             state_prob_ests *= np.zeros(N_states) + leftover_prob
             state_prob_ests[filter_idx[z.atype]] = mode_state_prob
-        print(f"State prob ests: {state_prob_ests}")
 
         if initial_state_prob_ests is not None:
             state_prob_ests += np.array(initial_state_prob_ests) * 0.5
-            print(f"Initial state prob ests: {state_prob_ests}")
+            #print(f"Initial state prob ests: {state_prob_ests}")
             #state_prob_ests *= 0.5 # Adjust effect of initial state prob ests
 
         # Compute "GIS" probability of being on a vehicle way.

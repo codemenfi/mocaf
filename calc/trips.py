@@ -302,7 +302,7 @@ ATYPE_BY_TRANSIT_TYPE = {
 }
 
 
-def split_trip_legs(conn, uid, df, include_all=False):
+def split_trip_legs(conn, uid, df, include_all=False, user_has_car=True):
     assert len(df.trip_id.unique()) == 1
 
     s = df['time'].dt.tz_convert(None) - pd.Timestamp('1970-01-01')
@@ -332,7 +332,6 @@ def split_trip_legs(conn, uid, df, include_all=False):
         if leg_df.iloc[0].atype != 'in_vehicle':
             continue
 
-
         try:
             transit_locs = get_transit_locations(conn, uid, leg_df.time.min(), leg_df.time.max())
         except pd.io.sql.DatabaseError as e:
@@ -357,8 +356,9 @@ def split_trip_legs(conn, uid, df, include_all=False):
         vtype = transit_type_by_id[vid]
         max_dist = MAX_DISTANCE_BY_TRANSIT_TYPE.get(vtype, 30)
 
-        if closest_dist > -max_dist:
+        if closest_dist > -max_dist or not user_has_car:
             df.loc[df.leg_id == leg_id, 'atype'] = ATYPE_BY_TRANSIT_TYPE[vtype]
+            df.loc[df.leg_id == leg_id, 'aconf'] = 100
 
     df = df.drop(columns=['epoch_ts', 'calc_speed', 'int_atype'])
 

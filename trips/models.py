@@ -71,6 +71,8 @@ class Device(ExportModelOperationsMixin('device'), models.Model):
     account_key = models.CharField(max_length=50, blank=True, null=True, unique=True)
     health_impact_enabled = models.BooleanField(default=False)
 
+    personal_tuning_enabled = models.BooleanField(default=False)
+
     enabled_at = models.DateTimeField(null=True)
     disabled_at = models.DateTimeField(null=True)
     created_at = models.DateTimeField(null=True)
@@ -376,6 +378,13 @@ class Device(ExportModelOperationsMixin('device'), models.Model):
             old_device.save()
         self.account_key = account_key
         self.save()
+
+    def user_has_car(self):
+        background_question = self.background_info_questions.filter(question="Autoiletko arjessasi?").first()
+        if background_question:
+            return background_question.answer.lower() == "kyllä"
+
+        return False
 
     def __str__(self):
         return str(self.uuid)
