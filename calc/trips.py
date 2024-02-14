@@ -19,7 +19,7 @@ MINS_BETWEEN_TRIPS = 20
 MIN_DISTANCE_MOVED_IN_TRIP = 200
 MIN_SAMPLES_PER_LEG = 15
 
-DAYS_TO_FETCH = 5
+DAYS_TO_FETCH = 100
 LOCAL_2D_CRS = 3067
 
 logger = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ ATYPE_UNKNOWN = ALL_ATYPES.index('unknown')
 IDX_MAPPING = {idx: ATYPE_REVERSE[x] for idx, x in enumerate(transport_modes.keys())}
 
 
-def filter_trips(df: pd.DataFrame):
+def filter_trips(df: pd.DataFrame, initial_state_prob_ests=None):
     out = df[['time', 'x', 'y', 'speed']].copy()
     s = df['time'].dt.tz_convert(None) - pd.Timestamp('1970-01-01')
     out['time'] = s / pd.Timedelta('1s')
@@ -142,7 +142,7 @@ def filter_trips(df: pd.DataFrame):
     out['vehicle_way_distance'] = df[['closest_car_way_dist', 'closest_rail_way_dist']].min(axis=1)
     out.loc[out.aconf == 1, 'aconf'] /= 2
 
-    ms, Ss, state_probs, most_likely_path, _ = filter_trajectory((r for i, r in out.iterrows()))
+    ms, Ss, state_probs, most_likely_path, _ = filter_trajectory((r for i, r in out.iterrows()), initial_state_prob_ests)
 
     x = ms[:, 0]
     y = ms[:, 1]
@@ -302,7 +302,7 @@ ATYPE_BY_TRANSIT_TYPE = {
 }
 
 
-def split_trip_legs(conn, uid, df, include_all=False):
+def split_trip_legs(conn, uid, df, include_all=False, user_has_car=True):
     assert len(df.trip_id.unique()) == 1
 
     s = df['time'].dt.tz_convert(None) - pd.Timestamp('1970-01-01')
@@ -356,8 +356,9 @@ def split_trip_legs(conn, uid, df, include_all=False):
         vtype = transit_type_by_id[vid]
         max_dist = MAX_DISTANCE_BY_TRANSIT_TYPE.get(vtype, 30)
 
-        if closest_dist > -max_dist:
+        if closest_dist > -max_dist or not user_has_car:
             df.loc[df.leg_id == leg_id, 'atype'] = ATYPE_BY_TRANSIT_TYPE[vtype]
+            df.loc[df.leg_id == leg_id, 'aconf'] = 100
 
     df = df.drop(columns=['epoch_ts', 'calc_speed', 'int_atype'])
 

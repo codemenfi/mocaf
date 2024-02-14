@@ -43,7 +43,7 @@ def uuid_or_bye(val):
 
 def sane_time_or_bye(dt):
     now = timezone.now()
-    if dt < now - timedelta(days=7):
+    if dt < now - timedelta(days=365):
         raise InvalidEventError('time is too much in the past')
     if dt > now + timedelta(minutes=5):
         raise InvalidEventError('time is too much in the future')
@@ -60,6 +60,7 @@ class EventProcessor:
         event.save(update_fields=['import_failed', 'imported_at'])
 
     def process_location_event(self, event):
+        logger.info('Processing location event')
         locs = event.data.get('location')
         if not isinstance(locs, list):
             raise InvalidEventError("location missing or invalid")
@@ -199,8 +200,10 @@ class EventProcessor:
             raise InvalidEventError("unknown data type: %s" % data_type)
 
     def process_events(self):
+        logger.info("Processing events")
         events = ReceiveData.objects.filter(imported_at__isnull=True).order_by('received_at')
         for event in events:
+            logger.info('Processing event %d' % event.id)
             with sentry_sdk.configure_scope() as scope:
                 scope.set_tag('event-id', int(event.id))
                 scope.set_tag('event-received-at', str(event.received_at))
@@ -216,7 +219,9 @@ class EventProcessor:
                             except Exception as e:
                                 sentry_sdk.capture_exception(e)
                                 raise
-                    except Exception:
+                    except Exception as e:
+                        print(e)
+                        logger.info('Failed to process event: %s' % e)
                         self.mark_imported(event, failed=True)
                     else:
                         self.mark_imported(event, failed=False)
