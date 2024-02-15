@@ -356,9 +356,9 @@ def split_trip_legs(conn, uid, df, include_all=False, user_has_car=True):
         vtype = transit_type_by_id[vid]
         max_dist = MAX_DISTANCE_BY_TRANSIT_TYPE.get(vtype, 30)
 
+        # If we have a car, we'll only trust the transit location if it's very close.
         if closest_dist > -max_dist or not user_has_car:
             df.loc[df.leg_id == leg_id, 'atype'] = ATYPE_BY_TRANSIT_TYPE[vtype]
-            df.loc[df.leg_id == leg_id, 'aconf'] = 100
 
     df = df.drop(columns=['epoch_ts', 'calc_speed', 'int_atype'])
 

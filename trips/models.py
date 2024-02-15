@@ -379,6 +379,7 @@ class Device(ExportModelOperationsMixin('device'), models.Model):
         self.account_key = account_key
         self.save()
 
+    @property
     def user_has_car(self):
         background_question = self.background_info_questions.filter(question="Autoiletko arjessasi?").first()
         if background_question:
