@@ -121,7 +121,6 @@ def filter_trajectory(traj, initial_state_prob_ests=None):
         # TODO: Is there more succint way of computing the full prob vector like this?
 
         state_prob_ests = np.ones(N_states)
-        #state_prob_ests = np.ones(N_states)
 
         if z.atype is not None:
             mode_state_prob = z.aconf
@@ -129,22 +128,23 @@ def filter_trajectory(traj, initial_state_prob_ests=None):
             state_prob_ests *= np.zeros(N_states) + leftover_prob
             state_prob_ests[filter_idx[z.atype]] = mode_state_prob
 
-        if initial_state_prob_ests is not None:
-            state_prob_ests += np.array(initial_state_prob_ests) * 0.5
-            #print(f"Initial state prob ests: {state_prob_ests}")
-            #state_prob_ests *= 0.5 # Adjust effect of initial state prob ests
-
         # Compute "GIS" probability of being on a vehicle way.
         # TODO! MEGASUPER HACKY 🤢!! We have nice distribution assupmptions and
         # could to this in a lot more pricinpled manner using Rayleigh-distribution,
         # but probably doesn't matter much here. So just double the "in_vehicle"
         # class prob est if this would be an "outlier"
         VEHICLE_GIS_PROB_FACTOR = 2
+        INITIAL_STATE_PROB_FACTOR = 0.2
         if z.vehicle_way_distance < z.location_std ** 2:
             state_prob_ests[-1] *= VEHICLE_GIS_PROB_FACTOR
+            state_prob_ests[-1] += initial_state_prob_ests[-1] * INITIAL_STATE_PROB_FACTOR
         else:
             state_prob_ests[-1] /= VEHICLE_GIS_PROB_FACTOR
-        
+
+            if initial_state_prob_ests is not None:
+                initial_state_prob_ests[-1] /= VEHICLE_GIS_PROB_FACTOR
+                state_prob_ests += np.array(initial_state_prob_ests) * INITIAL_STATE_PROB_FACTOR
+
         state_prob_ests /= np.sum(state_prob_ests)
         
         # TODO: Try to get the M into the prediction step. Mostly because
