@@ -162,7 +162,6 @@ class TripGenerator:
                     similar_prob = prob_mode
 
         if similar_prob:
-            print(f"Similar leg found with mode {similar_prob}")
             mode = self.atype_to_mode[similar_prob]
         else:
             mode = self.atype_to_mode[df.iloc[0].atype]
@@ -340,7 +339,11 @@ class TripGenerator:
         df['x'] = df['xf']
         df['y'] = df['yf']
 
-        df = split_trip_legs(connection, str(device.uuid), df)
+        if device.personal_tuning_enabled:
+            df = split_trip_legs(connection, str(device.uuid), df, user_has_car=device.user_has_car)
+        else:
+            df = split_trip_legs(connection, str(device.uuid), df)
+
         pc.display('legs split')
         if df is None:
             logger.info('%s: No legs for trip' % str(device))
