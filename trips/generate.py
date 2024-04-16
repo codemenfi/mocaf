@@ -67,6 +67,7 @@ class TripGenerator:
             'bus': transport_modes['bus'],
             'tram': transport_modes['tram'],
             'train': transport_modes['train'],
+            'other': transport_modes['other'],
         }
 
         self.atype_to_survey_mode = {

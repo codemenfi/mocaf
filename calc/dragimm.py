@@ -149,7 +149,7 @@ def filter_trajectory(traj, initial_state_prob_ests=None):
         
         # TODO: Try to get the M into the prediction step. Mostly because
         # it feels wrong here.
-        logger.info(f"State prob ests: {state_prob_ests}")
+        #logger.info(f"State prob ests: {state_prob_ests}")
         #print(f"State prob ests: {state_prob_ests}")
         imm.update(measurement, R, M, state_prob_ests=state_prob_ests)
         #imm.update(measurement, R, M, state_prob_ests=None)
