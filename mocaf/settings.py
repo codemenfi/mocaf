@@ -116,13 +116,13 @@ CELERY_BEAT_SCHEDULE = {
             'expires': 30,
         }
     },
-    'generate-new-survey-trips': {
-        'task': 'poll.tasks.generate_new_survey_trips',
-        'schedule': 240,
-        'options': {
-            'expires': 30,
-        }
-    },
+    #'generate-new-survey-trips': {
+    #    'task': 'poll.tasks.generate_new_survey_trips',
+    #    'schedule': 240,
+    #    'options': {
+    #        'expires': 30,
+    #    }
+    #},
     'award-prizes-and-send-notifications': {
         'task': 'notifications.tasks.award_prizes_and_send_notifications',
         'kwargs': {
@@ -149,22 +149,22 @@ CELERY_BEAT_SCHEDULE = {
             'expires': 18 * 60 * 60,  # 18 hours
         }
     },
-     'send-no-trips-notifications': {
-       'task': 'notifications.tasks.send_notifications',
-       'args': ('notifications.tasks.NoTripsTask',),
-       'schedule': crontab(hour=20, minute=0),
-       'options': {
-           'expires': 2 * 24 * 60 * 60,  #  2 days
-       }
-    },
-    'send-survey-end-notifications': {
-       'task': 'notifications.tasks.send_notifications',
-       'args': ('notifications.tasks.SurveyEndNotificationTask',),
-       'schedule': crontab(hour=9, minute=0),
-       'options': {
-           'expires': 23 * 60 * 60,  #  23 hours
-       }
-    },
+    # 'send-no-trips-notifications': {
+    #   'task': 'notifications.tasks.send_notifications',
+    #   'args': ('notifications.tasks.NoTripsTask',),
+    #   'schedule': crontab(hour=20, minute=0),
+    #   'options': {
+    #       'expires': 2 * 24 * 60 * 60,  #  2 days
+    #   }
+    #},
+    #'send-survey-end-notifications': {
+    #   'task': 'notifications.tasks.send_notifications',
+    #   'args': ('notifications.tasks.SurveyEndNotificationTask',),
+    #   'schedule': crontab(hour=9, minute=0),
+    #   'options': {
+    #       'expires': 23 * 60 * 60,  #  23 hours
+    #   }
+    #},
     # 'send-survey-start-notifications': {
     #   'task': 'notifications.tasks.send_notifications',
     #    'args': ('notifications.tasks.SurveyStartNotificationTask',),
@@ -173,14 +173,14 @@ CELERY_BEAT_SCHEDULE = {
     #        'expires':  23 * 60 * 60,  #  23 hours
     #    }
     # },
-    'send-reminder-notifications': {
-       'task': 'notifications.tasks.send_notifications',
-       'args': ('notifications.tasks.ReminderNotificationTask',),
-       'schedule': crontab(hour=19, minute=0),
-       'options': {
-           'expires':  23 * 60 * 60,  #  23 hours
-       }
-    },
+    #'send-reminder-notifications': {
+    #   'task': 'notifications.tasks.send_notifications',
+    #   'args': ('notifications.tasks.ReminderNotificationTask',),
+    #   'schedule': crontab(hour=19, minute=0),
+    #   'options': {
+    #       'expires':  23 * 60 * 60,  #  23 hours
+    #   }
+    #},
     'clean-up-stale-data': {
         'task': 'trips_ingest.tasks.cleanup',
         'args': (),
