@@ -127,6 +127,18 @@ services:
         condition: service_healthy
     command: celery worker notifications
 
+  celery-notifications-analytics:
+    container_name: mocaf_celery_analytics_worker
+    build: *django-build
+    restart: always
+    networks:
+      - mocaf-network
+    environment: *django-environment
+    depends_on:
+      app:
+        condition: service_healthy
+    command: celery worker analytics
+
   celery-beat:
     container_name: mocaf_celery_beat
     build: *django-build

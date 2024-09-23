@@ -189,6 +189,14 @@ CELERY_BEAT_SCHEDULE = {
             'expires': 1 * 60 * 60,  # 1 hour
         }
     },
+    'generate-stats': {
+        'task': 'analytics.tasks.generate_stats_task',
+        'args': (),
+        'schedule': crontab(hour=3, minute=0, day_of_week='monday'),
+        'options': {
+            'expires': 1 * 60 * 60,  # 1 hour
+        }
+    },
     # TODO: Update the following.
     # 'send-welcome-notifications': {
     #     'task': 'notifications.tasks.send_notifications',
@@ -210,6 +218,7 @@ CELERY_BEAT_SCHEDULE = {
 }
 CELERY_TASK_ROUTES = {
     'transitrt.tasks.*': {'queue': 'transitrt'},
+    'analytics.tasks.*': {'queue': 'analytics'},
     'trips.tasks.*': {'queue': 'trips'},
     'trips_ingest.tasks.*': {'queue': 'trips'},
     'poll.tasks.*': {'queue': 'trips'},
