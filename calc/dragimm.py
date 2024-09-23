@@ -137,7 +137,8 @@ def filter_trajectory(traj, initial_state_prob_ests=None):
         INITIAL_STATE_PROB_FACTOR = 0.2
         if z.vehicle_way_distance < z.location_std ** 2:
             state_prob_ests[-1] *= VEHICLE_GIS_PROB_FACTOR
-            state_prob_ests[-1] += initial_state_prob_ests[-1] * INITIAL_STATE_PROB_FACTOR
+            if initial_state_prob_ests is not None and len(initial_state_prob_ests) > 0:
+                state_prob_ests[-1] += initial_state_prob_ests[-1] * INITIAL_STATE_PROB_FACTOR
         else:
             state_prob_ests[-1] /= VEHICLE_GIS_PROB_FACTOR
 
