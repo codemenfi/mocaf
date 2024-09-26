@@ -36,6 +36,7 @@ x-django-build: &django-build
 services:
   db:
     container_name: mocaf-db
+    shm_size: 1g
     build:
       context: ./docker/db
       dockerfile: ./Dockerfile
@@ -55,6 +56,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
 
   redis:
     image: redis:6-alpine
