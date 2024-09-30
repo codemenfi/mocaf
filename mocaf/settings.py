@@ -192,7 +192,7 @@ CELERY_BEAT_SCHEDULE = {
     'generate-stats': {
         'task': 'analytics.tasks.generate_stats_task',
         'args': (),
-        'schedule': crontab(hour=3, minute=0, day_of_week='monday'),
+        'schedule': crontab(hour=3, minute=0),
         'options': {
             'expires': 1 * 60 * 60,  # 1 hour
         }

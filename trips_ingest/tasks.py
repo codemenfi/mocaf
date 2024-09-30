@@ -30,9 +30,8 @@ def cleanup():
     logger.info('Locations cleaned: %s' % str(ret))
     # Delete expired leg locations
     ret = LegLocation.objects.expired(buffer_hours=48).delete()
-    ret1 = LegsLocation.objects.expired(buffer_hours=48).delete()
     logger.info('Leg locations cleaned: %s' % str(ret))
-    logger.info('Leg locations cleaned: %s' % str(ret1))
+
     # Drop stale chunks in hypertables
     #with connection.cursor() as cursor:
     #    cursor.execute('''SELECT drop_chunks('trips_ingest_location', older_than => interval '2 week')''')
