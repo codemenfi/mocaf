@@ -4,7 +4,7 @@ import { syntheticModes } from './transportModes';
 const syntheticModeNames = syntheticModes.map(m => m.identifier);
 
 const defaultDateBounds = [
-  new Date(2023, 6, 1), new Date(2023, 10, 1)]
+  new Date(2024, 6, 1), new Date(2024, 10, 1)]
 
 const DEFAULT_TRANSPORTMODE = 'walk';
 
