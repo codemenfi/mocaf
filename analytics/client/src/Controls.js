@@ -11,7 +11,7 @@ import { el } from 'date-fns/locale';
 const t = (s) => s;  // Helper for IDE i18n extension to recognize translations
 
 const defaultDateBounds = [
-  new Date(2024, 5, 1), new Date(2024, 9, 1)]
+  new Date(2024, 6, 1), new Date(2024, 10, 1)]
 
 const selectionValues = {
   weekSubset: [
