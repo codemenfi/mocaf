@@ -29,12 +29,11 @@ export function initializeUserChoiceState ([initialAreaType, areaTypes]) {
 }
 
 function restrictDateRange({range, bounds}) {
-  const ifBounds = bounds || defaultDateBounds;
   if (range === null) {
-    range = [...ifBounds]
+    range = [...bounds]
   }
-  range[0] = max([range[0], ifBounds[0]]);
-  range[1] = min([range[1], ifBounds[1]]);
+  range[0] = max([range[0], bounds[0]]);
+  range[1] = min([range[1], bounds[1]]);
   return { bounds, range };
 }
 
@@ -42,17 +41,17 @@ function areaTypeDateRange(analyticsQuantity, areaTypeIdentifier, areaTypes, dat
   if (analyticsQuantity === 'poi_trips') {
     areaTypeIdentifier = 'tre:poi';
   }
-  areaTypes.find(
+  const { dailyLengthsDateRange, dailyTripsDateRange, dailyPoiTripsDateRange } = areaTypes.find(
     a => a.identifier === areaTypeIdentifier);
   let rangeStrings;
   if (analyticsQuantity === 'lengths') {
-    rangeStrings = areaTypes?.dailyLengthsDateRange;
+    rangeStrings = dailyLengthsDateRange;
   }
   if (analyticsQuantity === 'trips') {
-    rangeStrings = areaTypes?.dailyTripsDateRange;
+    rangeStrings = dailyTripsDateRange;
   }
   if (analyticsQuantity === 'poi_trips') {
-    rangeStrings = areaTypes?.dailyPoiTripsDateRange;
+    rangeStrings = dailyPoiTripsDateRange;
   }
   let bounds;
   if (rangeStrings === null) {
