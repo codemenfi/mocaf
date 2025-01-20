@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 x-django-environment: &django-environment
   - POSTGRES_PASSWORD
   - POSTGRES_DB=mocaf
@@ -68,7 +68,7 @@ services:
     networks:
       - mocaf-network
     healthcheck:
-      test: ["CMD", "redis-cli","ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -96,6 +96,11 @@ services:
       timeout: 5s
       retries: 5
     command: uwsgi
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
 
   celery-trips-worker:
     container_name: mocaf_celery_trips_worker
@@ -108,6 +113,11 @@ services:
       app:
         condition: service_healthy
     command: celery worker trips
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
 
   celery-transitrt-worker:
     container_name: mocaf_celery_transitrt_worker
@@ -120,6 +130,11 @@ services:
       app:
         condition: service_healthy
     command: celery worker transitrt
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
 
   celery-notifications-worker:
     container_name: mocaf_celery_notifications_worker
@@ -133,7 +148,7 @@ services:
         condition: service_healthy
     command: celery worker notifications
 
-  celery-notifications-analytics:
+  celery-analytics-worker:
     container_name: mocaf_celery_analytics_worker
     build: *django-build
     restart: always
