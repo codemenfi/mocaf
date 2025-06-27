@@ -184,7 +184,7 @@ class EnrollLottery(graphene.Mutation, AuthenticatedDeviceNode):
 
 class EnrollToSurvey(graphene.Mutation, AuthenticatedDeviceNode):
     class Arguments:
-        surveyId = graphene.ID(required=False)
+        survey_id = graphene.ID(required=False)
         back_question_answers = graphene.String(required=False, default_value="")
         feeling_question_answers = graphene.String(required=False, default_value="")
 
@@ -192,12 +192,17 @@ class EnrollToSurvey(graphene.Mutation, AuthenticatedDeviceNode):
 
     @classmethod
     def mutate(
-        cls, root, info, surveyId, back_question_answers="", feeling_question_answers=""
+        cls,
+        root,
+        info,
+        survey_id,
+        back_question_answers="",
+        feeling_question_answers="",
     ):
         dev = info.context.device
 
         partisipant = Partisipants.objects.filter(
-            survey_info=surveyId, device=dev
+            survey_info=survey_id, device=dev
         ).first()
 
         if partisipant is not None:
@@ -205,7 +210,7 @@ class EnrollToSurvey(graphene.Mutation, AuthenticatedDeviceNode):
 
         try:
             with transaction.atomic():
-                survey_info = SurveyInfo.objects.get(pk=surveyId)
+                survey_info = SurveyInfo.objects.get(pk=survey_id)
 
                 partisipant = Partisipants()
                 partisipant.device = info.context.device
