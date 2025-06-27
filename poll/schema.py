@@ -12,7 +12,8 @@ from mocaf.graphql_gis import LineStringScalar, PointScalar
 from django.db import transaction, DatabaseError
 from django.db.models import Q
 import json
-from types import SimpleNamespace
+
+from django.utils import timezone
 
 LOCAL_TZ = pytz.timezone("Europe/Helsinki")
 
@@ -193,53 +194,56 @@ class EnrollToSurvey(graphene.Mutation, AuthenticatedDeviceNode):
     def mutate(
         cls, root, info, surveyId, back_question_answers="", feeling_question_answers=""
     ):
-        okVal = True
-        device = info.context.device
+        dev = info.context.device
 
-        partObjChk = Partisipants.objects.filter(survey_info=surveyId, device=device)
+        partisipant = Partisipants.objects.filter(
+            survey_info=surveyId, device=dev
+        ).first()
 
-        if partObjChk:
+        if partisipant is not None:
             raise GraphQLError("User has allready enrolled to survey", [info])
 
         try:
             with transaction.atomic():
-                obj = Partisipants()
-                obj.device = info.context.device
-                obj.survey_info = SurveyInfo.objects.get(pk=surveyId)
-                dev = info.context.device
+                survey_info = SurveyInfo.objects.get(pk=surveyId)
+
+                partisipant = Partisipants()
+                partisipant.device = info.context.device
+                partisipant.survey_info = survey_info
+
                 if back_question_answers != "":
-                    obj.back_question_answers = back_question_answers
+                    partisipant.back_question_answers = back_question_answers
 
                 if feeling_question_answers != "":
-                    obj.feeling_question_answers = feeling_question_answers
+                    partisipant.feeling_question_answers = feeling_question_answers
 
-                obj.start_date = date.today()
-                obj.registered_to_survey_at = timezone.now()
+                partisipant.start_date = date.today()
+                partisipant.registered_to_survey_at = timezone.now()
                 dev.survey_enabled = True
                 dev.save()
-                obj.save()
+                partisipant.save()
 
-                surveyStartDate = obj.survey_info.get_random_startDate()
+                today = timezone.now().date()
+                # Survey starts the next day
+                survey_start_date = today + timedelta(days=1)
+                partisipant.start_date = survey_start_date
 
-                obj.start_date = surveyStartDate
+                for i in range(survey_info.days):
+                    day_info = DayInfo()
+                    day_info.partisipant = partisipant
+                    day_info.date = survey_start_date + timedelta(days=i)
+                    day_info.save()
 
-                for x in range(0, obj.survey_info.days):
-                    dayInfoObj = DayInfo()
-                    dayInfoObj.partisipant = obj
-                    dayInfoObj.date = surveyStartDate
-                    dayInfoObj.save()
-                    surveyStartDate = surveyStartDate + timedelta(days=1)
+                partisipant.end_date = survey_start_date + timedelta(
+                    days=survey_info.days - 1
+                )
 
-                surveyStartDate = surveyStartDate - timedelta(days=1)
-
-                obj.end_date = surveyStartDate
-
-                obj.save()
+                partisipant.save()
 
         except DatabaseError:
-            okVal = False
+            return cls(ok=False)
 
-        return dict(ok=okVal)
+        return cls(ok=True)
 
 
 class AddUserAnswerToQuestions(graphene.Mutation, AuthenticatedDeviceNode):
@@ -1217,9 +1221,9 @@ class Query(graphene.ObjectType):
         if not dev:
             raise GraphQLError("Authentication required", [info])
 
-        return SurveyInfo.objects.get(
-            start_day__lte=selectedDate + timedelta(days=7), end_day__gte=selectedDate - timedelta(days=7)
-        )
+        return SurveyInfo.objects.filter(
+            start_day__lte=selectedDate, end_day__gte=selectedDate
+        ).first()
 
     def resolve_pollSurveyInfo(root, info):
         dev = info.context.device
