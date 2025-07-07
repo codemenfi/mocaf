@@ -306,39 +306,39 @@ class AddQuestion(graphene.Mutation, AuthenticatedDeviceNode):
 
 class MarkUserDayReady(graphene.Mutation, AuthenticatedDeviceNode):
     class Arguments:
-        selectedDate = graphene.Date(required=True)
-        surveyId = graphene.ID(required=True)
+        selected_date = graphene.Date(required=True)
+        survey_id = graphene.ID(required=True)
 
     ok = graphene.Boolean()
 
     @classmethod
-    def mutate(cls, root, info, selectedDate, surveyId):
+    def mutate(cls, root, info, selected_date, survey_id):
         device = info.context.device
 
-        partisipantObj = Partisipants.objects.get(survey_info=surveyId, device=device)
+        partisipant = Partisipants.objects.get(survey_info=survey_id, device=device)
 
-        tripsObj = Trips.objects.filter(
-            partisipant=partisipantObj, start_time__date=selectedDate, deleted=False
+        trips = Trips.objects.filter(
+            partisipant=partisipant, start_time__date=selected_date, deleted=False
         )
 
-        for trip in tripsObj:
+        for trip in trips:
             if trip.purpose == "":
                 raise GraphQLError("All date trip needs purpose", [info])
 
             if trip.approved == False:
-                legsObj = Legs.objects.filter(trip=trip)
-                if not legsObj:
+                legs = Legs.objects.filter(trip=trip)
+                if not legs:
                     raise GraphQLError("Trip has no legs", [info])
 
                 trip.approved = True
                 trip.save()
 
-        dayInfoObj = DayInfo.objects.get(date=selectedDate, partisipant=partisipantObj)
-        dayInfoObj.approved = True
+        day_info = DayInfo.objects.get(date=selected_date, partisipant=partisipant)
+        day_info.approved = True
 
-        dayInfoObj.save()
+        day_info.save()
 
-        return dict(ok=True)
+        return cls(ok=True)
 
 
 class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):

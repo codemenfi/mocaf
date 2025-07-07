@@ -69,7 +69,6 @@ class TripsFactory(DjangoModelFactory):
     end_time = make_aware(datetime(2023, 7, 15, 23, 59, 45), utc)
     original_trip = True
     deleted = False
-    id = 1
 
 
 @freeze_time("2023-07-15")
@@ -86,4 +85,3 @@ class LegsFactory(DjangoModelFactory):
     transport_mode = "walking"
     original_leg = True
     deleted = False
-    id = 1

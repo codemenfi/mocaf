@@ -1,11 +1,14 @@
 import pytest
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from django.utils import timezone
 from freezegun import freeze_time
 
 from poll.tests.factories import (
     SurveyInfoFactory,
     ParticipantsFactory,
+    DayInfoFactory,
+    TripsFactory,
+    LegsFactory,
 )
 from poll.models import Partisipants, DayInfo
 
@@ -204,6 +207,392 @@ def test_enroll_to_survey_creates_day_info_objects(
 
 @freeze_time("2023-07-15")
 def test_enroll_to_survey_enables_device_survey(graphql_client_query_data, uuid, token):
+    """Test that enrollment enables survey for the device"""
+    survey = SurveyInfoFactory()
+
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollEnrollToSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+
+    assert data["pollEnrollToSurvey"]["ok"] is True
+
+    # Verify device survey_enabled was set to True
+    from trips.models import Device
+
+    device = Device.objects.get(uuid=uuid)
+    assert device.survey_enabled is True
+
+
+@freeze_time("2023-07-15")
+def test_mark_user_day_ready_success(graphql_client_query_data, uuid, token, device):
+    """Test successful marking of a day as ready with valid trips"""
+    # Create survey and participant
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=3
+    )
+    participant = ParticipantsFactory(device=device, survey_info=survey)
+
+    # Create day info for the selected date
+    day_info = DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=False
+    )
+
+    # Create trips with purpose and legs for the selected date
+    trip1 = TripsFactory(
+        partisipant=participant,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 8, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 9, 0, 0)),
+        purpose="travel_to_work_trip",
+        approved=False,
+    )
+    leg1 = LegsFactory(trip=trip1)
+
+    trip2 = TripsFactory(
+        partisipant=participant,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 17, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 18, 0, 0)),
+        purpose="leisure_trip",
+        approved=False,
+    )
+    leg2 = LegsFactory(trip=trip2)
+
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $selectedDate: Date!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollMarkUserDayReady(selectedDate: $selectedDate, surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={
+            "uuid": uuid,
+            "token": token,
+            "selectedDate": "2023-07-16",
+            "surveyId": survey.id,
+        },
+    )
+
+    assert data["pollMarkUserDayReady"]["ok"] is True
+
+    # Verify trips were approved
+    trip1.refresh_from_db()
+    trip2.refresh_from_db()
+    assert trip1.approved is True
+    assert trip2.approved is True
+
+    # Verify day info was approved
+    day_info.refresh_from_db()
+    assert day_info.approved is True
+
+
+@freeze_time("2023-07-15")
+def test_mark_user_day_ready_trip_without_legs(
+    graphql_client_query, contains_error, uuid, token, device
+):
+    """Test that marking day ready fails if an unapproved trip has no legs"""
+    survey = SurveyInfoFactory()
+    participant = ParticipantsFactory(device=device, survey_info=survey)
+
+    day_info = DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=False
+    )
+
+    # Create trip without legs
+    trip = TripsFactory(
+        partisipant=participant,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 8, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 9, 0, 0)),
+        purpose="travel_to_work_trip",
+        approved=False,
+    )
+    # No legs created
+
+    response = graphql_client_query(
+        """
+        mutation($uuid: String!, $token: String!, $selectedDate: Date!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollMarkUserDayReady(selectedDate: $selectedDate, surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={
+            "uuid": uuid,
+            "token": token,
+            "selectedDate": "2023-07-16",
+            "surveyId": survey.id,
+        },
+    )
+
+    assert contains_error(response, message="Trip has no legs")
+
+    # Verify nothing was approved
+    trip.refresh_from_db()
+    day_info.refresh_from_db()
+    assert trip.approved is False
+    assert day_info.approved is False
+
+
+@freeze_time("2023-07-15")
+def test_mark_user_day_ready_already_approved_trips(
+    graphql_client_query_data, uuid, token, device
+):
+    """Test marking day ready with already approved trips"""
+    survey = SurveyInfoFactory()
+    participant = ParticipantsFactory(device=device, survey_info=survey)
+
+    day_info = DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=False
+    )
+
+    # Create already approved trip
+    trip = TripsFactory(
+        partisipant=participant,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 8, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 9, 0, 0)),
+        purpose="travel_to_work_trip",
+        approved=True,  # Already approved
+    )
+    leg = LegsFactory(trip=trip)
+
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $selectedDate: Date!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollMarkUserDayReady(selectedDate: $selectedDate, surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={
+            "uuid": uuid,
+            "token": token,
+            "selectedDate": "2023-07-16",
+            "surveyId": survey.id,
+        },
+    )
+
+    assert data["pollMarkUserDayReady"]["ok"] is True
+
+    # Verify day info was approved
+    day_info.refresh_from_db()
+    assert day_info.approved is True
+
+    # Trip should remain approved
+    trip.refresh_from_db()
+    assert trip.approved is True
+
+
+@freeze_time("2023-07-15")
+def test_mark_user_day_ready_mixed_trips(
+    graphql_client_query_data, uuid, token, device
+):
+    """Test marking day ready with mix of approved and unapproved trips"""
+    survey = SurveyInfoFactory()
+    participant = ParticipantsFactory(device=device, survey_info=survey)
+
+    day_info = DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=False
+    )
+
+    # Create approved trip
+    approved_trip = TripsFactory(
+        partisipant=participant,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 8, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 9, 0, 0)),
+        purpose="travel_to_work_trip",
+        approved=True,
+    )
+    approved_leg = LegsFactory(trip=approved_trip)
+
+    # Create unapproved trip
+    unapproved_trip = TripsFactory(
+        partisipant=participant,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 17, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 18, 0, 0)),
+        purpose="leisure_trip",
+        approved=False,
+    )
+    unapproved_leg = LegsFactory(trip=unapproved_trip)
+
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $selectedDate: Date!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollMarkUserDayReady(selectedDate: $selectedDate, surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={
+            "uuid": uuid,
+            "token": token,
+            "selectedDate": "2023-07-16",
+            "surveyId": survey.id,
+        },
+    )
+
+    assert data["pollMarkUserDayReady"]["ok"] is True
+
+    # Verify both trips are approved
+    approved_trip.refresh_from_db()
+    unapproved_trip.refresh_from_db()
+    assert approved_trip.approved is True
+    assert unapproved_trip.approved is True
+
+    # Verify day info was approved
+    day_info.refresh_from_db()
+    assert day_info.approved is True
+
+
+@freeze_time("2023-07-15")
+def test_mark_user_day_ready_no_trips(graphql_client_query_data, uuid, token, device):
+    """Test marking day ready when there are no trips for the date"""
+    survey = SurveyInfoFactory()
+    participant = ParticipantsFactory(device=device, survey_info=survey)
+
+    day_info = DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=False
+    )
+
+    # No trips created for this date
+
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $selectedDate: Date!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollMarkUserDayReady(selectedDate: $selectedDate, surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={
+            "uuid": uuid,
+            "token": token,
+            "selectedDate": "2023-07-16",
+            "surveyId": survey.id,
+        },
+    )
+
+    assert data["pollMarkUserDayReady"]["ok"] is True
+
+    # Verify day info was approved even with no trips
+    day_info.refresh_from_db()
+    assert day_info.approved is True
+
+
+@freeze_time("2023-07-15")
+def test_mark_user_day_ready_deleted_trips_ignored(
+    graphql_client_query_data, uuid, token, device
+):
+    """Test that deleted trips are ignored when marking day ready"""
+    survey = SurveyInfoFactory()
+    participant = ParticipantsFactory(device=device, survey_info=survey)
+
+    day_info = DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=False
+    )
+
+    # Create deleted trip (should be ignored)
+    deleted_trip = TripsFactory(
+        partisipant=participant,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 8, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 9, 0, 0)),
+        purpose="travel_to_work_trip",
+        approved=False,
+        deleted=True,  # Deleted trip
+    )
+    deleted_leg = LegsFactory(trip=deleted_trip)
+
+    # Create valid trip
+    valid_trip = TripsFactory(
+        partisipant=participant,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 17, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 18, 0, 0)),
+        purpose="leisure_trip",
+        approved=False,
+        deleted=False,
+    )
+    valid_leg = LegsFactory(trip=valid_trip)
+
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $selectedDate: Date!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollMarkUserDayReady(selectedDate: $selectedDate, surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={
+            "uuid": uuid,
+            "token": token,
+            "selectedDate": "2023-07-16",
+            "surveyId": survey.id,
+        },
+    )
+
+    assert data["pollMarkUserDayReady"]["ok"] is True
+
+    # Verify only valid trip was approved
+    deleted_trip.refresh_from_db()
+    valid_trip.refresh_from_db()
+    assert deleted_trip.approved is False  # Should remain unapproved
+    assert valid_trip.approved is True
+
+    # Verify day info was approved
+    day_info.refresh_from_db()
+    assert day_info.approved is True
+
+
+@freeze_time("2023-07-15")
+def test_mark_user_day_ready_wrong_date(
+    graphql_client_query, contains_error, uuid, token, device
+):
+    """Test that marking day ready fails for date with no day info"""
+    survey = SurveyInfoFactory()
+    participant = ParticipantsFactory(device=device, survey_info=survey)
+
+    # Create day info for different date
+    day_info = DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 17), approved=False
+    )
+
+    # Try to mark a date that has no day info
+    response = graphql_client_query(
+        """
+        mutation($uuid: String!, $token: String!, $selectedDate: Date!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollMarkUserDayReady(selectedDate: $selectedDate, surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={
+            "uuid": uuid,
+            "token": token,
+            "selectedDate": "2023-07-16",  # Date with no day info
+            "surveyId": survey.id,
+        },
+    )
+
+    # This should fail because there's no DayInfo for the selected date
+    assert "errors" in response
+
+
+@freeze_time("2023-07-15")
+def test_mark_user_day_ready_enables_device_survey(
+    graphql_client_query_data, uuid, token
+):
     """Test that enrollment enables survey for the device"""
     survey = SurveyInfoFactory()
 
