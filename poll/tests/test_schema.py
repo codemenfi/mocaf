@@ -697,6 +697,158 @@ def test_approve_user_survey_with_unapproved_days(
 
 
 @freeze_time("2023-07-15")
+def test_approve_user_survey_sets_survey_day(graphql_client_query_data, uuid, token, device):
+    """Test that approval sets a random survey_day when it's null"""
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=3
+    )
+    participant = ParticipantsFactory(
+        device=device, 
+        survey_info=survey, 
+        approved=False,
+        start_date=date(2023, 7, 16),
+        end_date=date(2023, 7, 18),
+        survey_day=None  # Initially null
+    )
+    
+    # Create all day info objects as approved
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=True
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 17), approved=True
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 18), approved=True
+    )
+    
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollApproveUserSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+    
+    assert data["pollApproveUserSurvey"]["ok"] is True
+    
+    # Verify participant was approved and survey_day was set
+    participant.refresh_from_db()
+    assert participant.approved is True
+    assert participant.survey_day is not None
+    
+    # Verify survey_day is within the valid range (start_date to start_date + 2 days)
+    assert participant.start_date <= participant.survey_day <= participant.start_date + timedelta(days=2)
+
+
+@freeze_time("2023-07-15")
+def test_approve_user_survey_randomization_range(graphql_client_query_data, uuid, token, device):
+    """Test that survey_day randomization falls within expected 2-day range across multiple runs"""
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=3
+    )
+    
+    # Test multiple participants to verify randomization
+    survey_days = []
+    for i in range(10):  # Run 10 times to check randomness
+        participant = ParticipantsFactory(
+            device=device, 
+            survey_info=survey, 
+            approved=False,
+            start_date=date(2023, 7, 16),
+            end_date=date(2023, 7, 18),
+            survey_day=None
+        )
+        
+        # Create all day info objects as approved
+        DayInfoFactory(
+            partisipant=participant, date=date(2023, 7, 16), approved=True
+        )
+        DayInfoFactory(
+            partisipant=participant, date=date(2023, 7, 17), approved=True
+        )
+        DayInfoFactory(
+            partisipant=participant, date=date(2023, 7, 18), approved=True
+        )
+        
+        data = graphql_client_query_data(
+            """
+            mutation($uuid: String!, $token: String!, $surveyId: ID!)
+            @device(uuid: $uuid, token: $token) {
+                pollApproveUserSurvey(surveyId: $surveyId) {
+                    ok
+                }
+            }
+            """,
+            variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+        )
+        
+        assert data["pollApproveUserSurvey"]["ok"] is True
+        
+        participant.refresh_from_db()
+        survey_days.append(participant.survey_day)
+        
+        # Verify each survey_day is within the valid 2-day range
+        assert participant.start_date <= participant.survey_day <= participant.start_date + timedelta(days=2)
+        
+        # Clean up for next iteration
+        participant.delete()
+    
+    # Verify we got some variation in survey_days (not all identical)
+    unique_days = set(survey_days)
+    assert len(unique_days) > 1, "Survey days should show some randomization"
+
+
+@freeze_time("2023-07-15")
+def test_approve_user_survey_different_start_dates(graphql_client_query_data, uuid, token, device):
+    """Test survey_day randomization with different participant start dates"""
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 10), end_day=date(2023, 7, 25), days=3
+    )
+    
+    # Test with start_date = 2023-07-20
+    participant1 = ParticipantsFactory(
+        device=device, 
+        survey_info=survey, 
+        approved=False,
+        start_date=date(2023, 7, 20),
+        end_date=date(2023, 7, 22),
+        survey_day=None
+    )
+    
+    DayInfoFactory(partisipant=participant1, date=date(2023, 7, 20), approved=True)
+    DayInfoFactory(partisipant=participant1, date=date(2023, 7, 21), approved=True)
+    DayInfoFactory(partisipant=participant1, date=date(2023, 7, 22), approved=True)
+    
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollApproveUserSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+    
+    assert data["pollApproveUserSurvey"]["ok"] is True
+    
+    participant1.refresh_from_db()
+    assert participant1.approved is True
+    assert participant1.survey_day is not None
+    
+    # Survey day should be within start_date + 2 days range
+    expected_min = date(2023, 7, 20)
+    expected_max = date(2023, 7, 22)  # start_date + 2 days
+    assert expected_min <= participant1.survey_day <= expected_max
+
+
+@freeze_time("2023-07-15")
 def test_approve_user_survey_participant_not_found(
     graphql_client_query, contains_error, uuid, token
 ):
@@ -831,3 +983,155 @@ def test_approve_user_survey_multiple_unapproved_days(
     # Verify participant was not approved
     participant.refresh_from_db()
     assert participant.approved is False
+
+
+@freeze_time("2023-07-15")
+def test_approve_user_survey_sets_survey_day(graphql_client_query_data, uuid, token, device):
+    """Test that approval sets a random survey_day when it's null"""
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=3
+    )
+    participant = ParticipantsFactory(
+        device=device, 
+        survey_info=survey, 
+        approved=False,
+        start_date=date(2023, 7, 16),
+        end_date=date(2023, 7, 18),
+        survey_day=None  # Initially null
+    )
+    
+    # Create all day info objects as approved
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=True
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 17), approved=True
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 18), approved=True
+    )
+    
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollApproveUserSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+    
+    assert data["pollApproveUserSurvey"]["ok"] is True
+    
+    # Verify participant was approved and survey_day was set
+    participant.refresh_from_db()
+    assert participant.approved is True
+    assert participant.survey_day is not None
+    
+    # Verify survey_day is within the valid range (start_date to start_date + 2 days)
+    assert participant.start_date <= participant.survey_day <= participant.start_date + timedelta(days=2)
+
+
+@freeze_time("2023-07-15")
+def test_approve_user_survey_randomization_range(graphql_client_query_data, uuid, token, device):
+    """Test that survey_day randomization falls within expected 2-day range across multiple runs"""
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=3
+    )
+    
+    # Test multiple participants to verify randomization
+    survey_days = []
+    for i in range(10):  # Run 10 times to check randomness
+        participant = ParticipantsFactory(
+            device=device, 
+            survey_info=survey, 
+            approved=False,
+            start_date=date(2023, 7, 16),
+            end_date=date(2023, 7, 18),
+            survey_day=None
+        )
+        
+        # Create all day info objects as approved
+        DayInfoFactory(
+            partisipant=participant, date=date(2023, 7, 16), approved=True
+        )
+        DayInfoFactory(
+            partisipant=participant, date=date(2023, 7, 17), approved=True
+        )
+        DayInfoFactory(
+            partisipant=participant, date=date(2023, 7, 18), approved=True
+        )
+        
+        data = graphql_client_query_data(
+            """
+            mutation($uuid: String!, $token: String!, $surveyId: ID!)
+            @device(uuid: $uuid, token: $token) {
+                pollApproveUserSurvey(surveyId: $surveyId) {
+                    ok
+                }
+            }
+            """,
+            variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+        )
+        
+        assert data["pollApproveUserSurvey"]["ok"] is True
+        
+        participant.refresh_from_db()
+        survey_days.append(participant.survey_day)
+        
+        # Verify each survey_day is within the valid 2-day range
+        assert participant.start_date <= participant.survey_day <= participant.start_date + timedelta(days=2)
+        
+        # Clean up for next iteration
+        participant.delete()
+    
+    # Verify we got some variation in survey_days (not all identical)
+    unique_days = set(survey_days)
+    assert len(unique_days) > 1, "Survey days should show some randomization"
+
+
+@freeze_time("2023-07-15")
+def test_approve_user_survey_different_start_dates(graphql_client_query_data, uuid, token, device):
+    """Test survey_day randomization with different participant start dates"""
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 10), end_day=date(2023, 7, 25), days=3
+    )
+    
+    # Test with start_date = 2023-07-20
+    participant1 = ParticipantsFactory(
+        device=device, 
+        survey_info=survey, 
+        approved=False,
+        start_date=date(2023, 7, 20),
+        end_date=date(2023, 7, 22),
+        survey_day=None
+    )
+    
+    DayInfoFactory(partisipant=participant1, date=date(2023, 7, 20), approved=True)
+    DayInfoFactory(partisipant=participant1, date=date(2023, 7, 21), approved=True)
+    DayInfoFactory(partisipant=participant1, date=date(2023, 7, 22), approved=True)
+    
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollApproveUserSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+    
+    assert data["pollApproveUserSurvey"]["ok"] is True
+    
+    participant1.refresh_from_db()
+    assert participant1.approved is True
+    assert participant1.survey_day is not None
+    
+    # Survey day should be within start_date + 2 days range
+    expected_min = date(2023, 7, 20)
+    expected_max = date(2023, 7, 22)  # start_date + 2 days
+    assert expected_min <= participant1.survey_day <= expected_max

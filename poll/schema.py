@@ -156,6 +156,7 @@ class ApproveUserSurvey(graphene.Mutation, AuthenticatedDeviceNode):
             raise GraphQLError("There are non approved days", [info])
 
         partisipant.approved = True
+        partisipant.randomize_survey_day()
         partisipant.save()
 
         return cls(ok=True)

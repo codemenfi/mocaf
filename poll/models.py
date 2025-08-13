@@ -95,6 +95,10 @@ class Partisipants(models.Model):
 
     start_date = models.DateField(null=False)
     end_date = models.DateField(null=True)
+
+    # Survey data is analyzed only from a single day within start_date - end_date range
+    survey_day = models.DateField(null=True)
+
     registered_to_survey_at = models.DateTimeField(null=True)
 
     approved = models.BooleanField(null=False, default=False)
@@ -115,6 +119,13 @@ class Partisipants(models.Model):
 
     class Meta:
         unique_together = ("device", "survey_info")
+
+
+    def randomize_survey_day(self):
+        day_num = random.random() * 3
+        self.survey_day = self.start_date + timedelta(days=day_num)
+
+
 
 
 class DayInfo(models.Model):
