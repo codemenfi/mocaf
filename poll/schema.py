@@ -32,7 +32,7 @@ class PollLegNode(DjangoNode, AuthenticatedDeviceNode):
             points = list(
                 root.locations.active().values_list("loc", flat=True).order_by("time")
             )
-        return LineString(points)
+        return LineStringScalar(points)
 
     def resolve_locations(root: Legs, info):
         if not root.can_user_update():
@@ -147,20 +147,18 @@ class ApproveUserSurvey(graphene.Mutation, AuthenticatedDeviceNode):
 
     @classmethod
     def mutate(cls, root, info, surveyId):
-        okVal = True
         device = info.context.device
-        partisipantObj = Partisipants.objects.get(survey_info=surveyId, device=device)
+        partisipant = Partisipants.objects.get(survey_info=surveyId, device=device)
 
-        daysObj = DayInfo.objects.filter(partisipant=partisipantObj, approved=False)
+        days = DayInfo.objects.filter(partisipant=partisipant, approved=False)
 
-        if daysObj:
-            okVal = True
+        if days:
             raise GraphQLError("There are non approved days", [info])
 
-        partisipantObj.approved = True
-        partisipantObj.save()
+        partisipant.approved = True
+        partisipant.save()
 
-        return dict(ok=okVal)
+        return cls(ok=True)
 
 
 class EnrollLottery(graphene.Mutation, AuthenticatedDeviceNode):

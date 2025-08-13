@@ -615,3 +615,219 @@ def test_mark_user_day_ready_enables_device_survey(
 
     device = Device.objects.get(uuid=uuid)
     assert device.survey_enabled is True
+
+
+@freeze_time("2023-07-15")
+def test_approve_user_survey_success(graphql_client_query_data, uuid, token, device):
+    """Test successful approval of user survey when all days are approved"""
+    # Create survey and participant
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=3
+    )
+    participant = ParticipantsFactory(device=device, survey_info=survey, approved=False)
+    
+    # Create day info objects for all survey days - all approved
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=True
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 17), approved=True
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 18), approved=True
+    )
+    
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollApproveUserSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+    
+    assert data["pollApproveUserSurvey"]["ok"] is True
+    
+    # Verify participant was approved
+    participant.refresh_from_db()
+    assert participant.approved is True
+
+
+@freeze_time("2023-07-15")
+def test_approve_user_survey_with_unapproved_days(
+    graphql_client_query, contains_error, uuid, token, device
+):
+    """Test that approval fails when there are unapproved days"""
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=3
+    )
+    participant = ParticipantsFactory(device=device, survey_info=survey, approved=False)
+    
+    # Create day info objects - some unapproved
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=True
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 17), approved=False  # Unapproved
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 18), approved=True
+    )
+    
+    response = graphql_client_query(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollApproveUserSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+    
+    assert contains_error(response, message="There are non approved days")
+    
+    # Verify participant was not approved
+    participant.refresh_from_db()
+    assert participant.approved is False
+
+
+@freeze_time("2023-07-15")
+def test_approve_user_survey_participant_not_found(
+    graphql_client_query, contains_error, uuid, token
+):
+    """Test that approval fails when participant doesn't exist for the survey"""
+    survey = SurveyInfoFactory()
+    
+    # No participant created for this survey and device
+    
+    response = graphql_client_query(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollApproveUserSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+    
+    # Should fail because participant doesn't exist
+    assert "errors" in response
+
+
+@freeze_time("2023-07-15")
+def test_approve_user_survey_already_approved(
+    graphql_client_query_data, uuid, token, device
+):
+    """Test approval when participant is already approved"""
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=3
+    )
+    participant = ParticipantsFactory(
+        device=device, survey_info=survey, approved=True  # Already approved
+    )
+    
+    # Create all day info objects as approved
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=True
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 17), approved=True
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 18), approved=True
+    )
+    
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollApproveUserSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+    
+    assert data["pollApproveUserSurvey"]["ok"] is True
+    
+    # Verify participant remains approved
+    participant.refresh_from_db()
+    assert participant.approved is True
+
+
+@freeze_time("2023-07-15")
+def test_approve_user_survey_no_days(graphql_client_query_data, uuid, token, device):
+    """Test approval when participant has no day info objects"""
+    survey = SurveyInfoFactory()
+    participant = ParticipantsFactory(device=device, survey_info=survey, approved=False)
+    
+    # No DayInfo objects created
+    
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollApproveUserSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+    
+    assert data["pollApproveUserSurvey"]["ok"] is True
+    
+    # Verify participant was approved
+    participant.refresh_from_db()
+    assert participant.approved is True
+
+
+@freeze_time("2023-07-15")
+def test_approve_user_survey_multiple_unapproved_days(
+    graphql_client_query, contains_error, uuid, token, device
+):
+    """Test that approval fails when there are multiple unapproved days"""
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=4
+    )
+    participant = ParticipantsFactory(device=device, survey_info=survey, approved=False)
+    
+    # Create day info objects - multiple unapproved
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=False  # Unapproved
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 17), approved=True
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 18), approved=False  # Unapproved
+    )
+    DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 19), approved=False  # Unapproved
+    )
+    
+    response = graphql_client_query(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollApproveUserSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+    
+    assert contains_error(response, message="There are non approved days")
+    
+    # Verify participant was not approved
+    participant.refresh_from_db()
+    assert participant.approved is False
