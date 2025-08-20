@@ -12,7 +12,8 @@ from mocaf.graphql_gis import LineStringScalar, PointScalar
 from django.db import transaction, DatabaseError
 from django.db.models import Q
 import json
-from types import SimpleNamespace
+
+from django.utils import timezone
 
 LOCAL_TZ = pytz.timezone("Europe/Helsinki")
 
@@ -31,7 +32,7 @@ class PollLegNode(DjangoNode, AuthenticatedDeviceNode):
             points = list(
                 root.locations.active().values_list("loc", flat=True).order_by("time")
             )
-        return LineString(points)
+        return LineStringScalar(points)
 
     def resolve_locations(root: Legs, info):
         if not root.can_user_update():
@@ -146,20 +147,19 @@ class ApproveUserSurvey(graphene.Mutation, AuthenticatedDeviceNode):
 
     @classmethod
     def mutate(cls, root, info, surveyId):
-        okVal = True
         device = info.context.device
-        partisipantObj = Partisipants.objects.get(survey_info=surveyId, device=device)
+        partisipant = Partisipants.objects.get(survey_info=surveyId, device=device)
 
-        daysObj = DayInfo.objects.filter(partisipant=partisipantObj, approved=False)
+        days = DayInfo.objects.filter(partisipant=partisipant, approved=False)
 
-        if daysObj:
-            okVal = True
+        if days:
             raise GraphQLError("There are non approved days", [info])
 
-        partisipantObj.approved = True
-        partisipantObj.save()
+        partisipant.approved = True
+        partisipant.randomize_survey_day()
+        partisipant.save()
 
-        return dict(ok=okVal)
+        return cls(ok=True)
 
 
 class EnrollLottery(graphene.Mutation, AuthenticatedDeviceNode):
@@ -183,7 +183,7 @@ class EnrollLottery(graphene.Mutation, AuthenticatedDeviceNode):
 
 class EnrollToSurvey(graphene.Mutation, AuthenticatedDeviceNode):
     class Arguments:
-        surveyId = graphene.ID(required=False)
+        survey_id = graphene.ID(required=False)
         back_question_answers = graphene.String(required=False, default_value="")
         feeling_question_answers = graphene.String(required=False, default_value="")
 
@@ -191,55 +191,63 @@ class EnrollToSurvey(graphene.Mutation, AuthenticatedDeviceNode):
 
     @classmethod
     def mutate(
-        cls, root, info, surveyId, back_question_answers="", feeling_question_answers=""
+        cls,
+        root,
+        info,
+        survey_id,
+        back_question_answers="",
+        feeling_question_answers="",
     ):
-        okVal = True
-        device = info.context.device
+        dev = info.context.device
 
-        partObjChk = Partisipants.objects.filter(survey_info=surveyId, device=device)
+        partisipant = Partisipants.objects.filter(
+            survey_info=survey_id, device=dev
+        ).first()
 
-        if partObjChk:
+        if partisipant is not None:
             raise GraphQLError("User has allready enrolled to survey", [info])
 
         try:
             with transaction.atomic():
-                obj = Partisipants()
-                obj.device = info.context.device
-                obj.survey_info = SurveyInfo.objects.get(pk=surveyId)
-                dev = info.context.device
+                survey_info = SurveyInfo.objects.get(pk=survey_id)
+
+                partisipant = Partisipants()
+                partisipant.device = info.context.device
+                partisipant.survey_info = survey_info
+
                 if back_question_answers != "":
-                    obj.back_question_answers = back_question_answers
+                    partisipant.back_question_answers = back_question_answers
 
                 if feeling_question_answers != "":
-                    obj.feeling_question_answers = feeling_question_answers
+                    partisipant.feeling_question_answers = feeling_question_answers
 
-                obj.start_date = date.today()
-                obj.registered_to_survey_at = timezone.now()
+                partisipant.start_date = date.today()
+                partisipant.registered_to_survey_at = timezone.now()
                 dev.survey_enabled = True
                 dev.save()
-                obj.save()
+                partisipant.save()
 
-                surveyStartDate = obj.survey_info.get_random_startDate()
+                today = timezone.now().date()
+                # Survey starts the next day
+                survey_start_date = today + timedelta(days=1)
+                partisipant.start_date = survey_start_date
 
-                obj.start_date = surveyStartDate
+                for i in range(survey_info.days):
+                    day_info = DayInfo()
+                    day_info.partisipant = partisipant
+                    day_info.date = survey_start_date + timedelta(days=i)
+                    day_info.save()
 
-                for x in range(0, obj.survey_info.days):
-                    dayInfoObj = DayInfo()
-                    dayInfoObj.partisipant = obj
-                    dayInfoObj.date = surveyStartDate
-                    dayInfoObj.save()
-                    surveyStartDate = surveyStartDate + timedelta(days=1)
+                partisipant.end_date = survey_start_date + timedelta(
+                    days=survey_info.days - 1
+                )
 
-                surveyStartDate = surveyStartDate - timedelta(days=1)
-
-                obj.end_date = surveyStartDate
-
-                obj.save()
+                partisipant.save()
 
         except DatabaseError:
-            okVal = False
+            return cls(ok=False)
 
-        return dict(ok=okVal)
+        return cls(ok=True)
 
 
 class AddUserAnswerToQuestions(graphene.Mutation, AuthenticatedDeviceNode):
@@ -297,39 +305,39 @@ class AddQuestion(graphene.Mutation, AuthenticatedDeviceNode):
 
 class MarkUserDayReady(graphene.Mutation, AuthenticatedDeviceNode):
     class Arguments:
-        selectedDate = graphene.Date(required=True)
-        surveyId = graphene.ID(required=True)
+        selected_date = graphene.Date(required=True)
+        survey_id = graphene.ID(required=True)
 
     ok = graphene.Boolean()
 
     @classmethod
-    def mutate(cls, root, info, selectedDate, surveyId):
+    def mutate(cls, root, info, selected_date, survey_id):
         device = info.context.device
 
-        partisipantObj = Partisipants.objects.get(survey_info=surveyId, device=device)
+        partisipant = Partisipants.objects.get(survey_info=survey_id, device=device)
 
-        tripsObj = Trips.objects.filter(
-            partisipant=partisipantObj, start_time__date=selectedDate, deleted=False
+        trips = Trips.objects.filter(
+            partisipant=partisipant, start_time__date=selected_date, deleted=False
         )
 
-        for trip in tripsObj:
+        for trip in trips:
             if trip.purpose == "":
                 raise GraphQLError("All date trip needs purpose", [info])
 
             if trip.approved == False:
-                legsObj = Legs.objects.filter(trip=trip)
-                if not legsObj:
+                legs = Legs.objects.filter(trip=trip)
+                if not legs:
                     raise GraphQLError("Trip has no legs", [info])
 
                 trip.approved = True
                 trip.save()
 
-        dayInfoObj = DayInfo.objects.get(date=selectedDate, partisipant=partisipantObj)
-        dayInfoObj.approved = True
+        day_info = DayInfo.objects.get(date=selected_date, partisipant=partisipant)
+        day_info.approved = True
 
-        dayInfoObj.save()
+        day_info.save()
 
-        return dict(ok=True)
+        return cls(ok=True)
 
 
 class AddTrip(graphene.Mutation, AuthenticatedDeviceNode):
@@ -1217,9 +1225,9 @@ class Query(graphene.ObjectType):
         if not dev:
             raise GraphQLError("Authentication required", [info])
 
-        return SurveyInfo.objects.get(
-            start_day__lte=selectedDate + timedelta(days=7), end_day__gte=selectedDate - timedelta(days=7)
-        )
+        return SurveyInfo.objects.filter(
+            start_day__lte=selectedDate, end_day__gte=selectedDate
+        ).first()
 
     def resolve_pollSurveyInfo(root, info):
         dev = info.context.device
