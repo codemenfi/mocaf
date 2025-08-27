@@ -301,8 +301,154 @@ ATYPE_BY_TRANSIT_TYPE = {
     3: 'bus',
 }
 
+# Define meaningful transport modes (excluding 'still' and 'unknown')
+MEANINGFUL_TRANSPORT_MODES = ['walking', 'on_foot', 'on_bicycle', 'in_vehicle', 'car', 'bus', 'tram', 'train', 'other']
 
-def split_trip_legs(conn, uid, df, include_all=False, user_has_car=True):
+# Define transport mode similarity groups for merging
+TRANSPORT_MODE_GROUPS = {
+    'walking': ['walking', 'on_foot'],
+    'cycling': ['on_bicycle'],
+    'driving': ['in_vehicle', 'car'],
+    'transit': ['bus', 'tram', 'train'],
+    'other': ['other']
+}
+
+
+def get_transport_mode_group(mode):
+    """Get the transport mode group for a given mode."""
+    for group, modes in TRANSPORT_MODE_GROUPS.items():
+        if mode in modes:
+            return group
+    return 'other'
+
+
+def limit_transportation_methods(df, max_methods=3):
+    """
+    Limit a trip to maximum 3 transportation method changes.
+    Merges similar or less confident segments to achieve this limit.
+    
+    Args:
+        df: DataFrame with leg_id and atype columns
+        max_methods: Maximum number of distinct transport methods allowed
+    
+    Returns:
+        DataFrame with potentially modified atype values
+    """
+    if len(df) == 0:
+        return df
+    
+    df = df.copy()
+    
+    # Get only meaningful transport modes (exclude still/unknown)
+    meaningful_mask = df.atype.isin(MEANINGFUL_TRANSPORT_MODES) & (df.leg_id != -1)
+    
+    if not meaningful_mask.any():
+        return df
+    
+    # Work with meaningful rows and create transport groups
+    meaningful_df = df[meaningful_mask].copy()
+    meaningful_df['transport_group'] = meaningful_df.atype.apply(get_transport_mode_group)
+    
+    # Create segments based on consecutive transport groups
+    meaningful_df['group_change'] = meaningful_df.transport_group != meaningful_df.transport_group.shift()
+    meaningful_df['segment_id'] = meaningful_df.group_change.cumsum()
+    
+    # Analyze segments
+    segments = meaningful_df.groupby('segment_id').agg({
+        'transport_group': 'first',
+        'atype': lambda x: x.value_counts().index[0],  # Most frequent atype
+        'time': ['min', 'max'],
+        'leg_id': ['count', 'first', 'last']
+    }).reset_index()
+    
+    # Flatten column names
+    segments.columns = ['segment_id', 'transport_group', 'dominant_atype', 
+                       'start_time', 'end_time', 'sample_count', 'first_leg', 'last_leg']
+    segments['duration'] = (segments.end_time - segments.start_time).dt.total_seconds()
+    
+    unique_groups = segments.transport_group.nunique()
+    
+    # If we already have <= max_methods, return as-is
+    if unique_groups <= max_methods:
+        return df
+    
+    # Create a simpler merging strategy
+    # Step 1: Merge shortest segments with adjacent segments
+    while segments.transport_group.nunique() > max_methods and len(segments) > 1:
+        # Find shortest segment
+        shortest_idx = segments.duration.idxmin()
+        shortest_segment = segments.loc[shortest_idx]
+        
+        # Determine which adjacent segment to merge with
+        merge_target = None
+        
+        if shortest_idx > 0 and shortest_idx < len(segments) - 1:
+            # Has both neighbors - choose the one with same group or longer duration
+            prev_segment = segments.loc[shortest_idx - 1]
+            next_segment = segments.loc[shortest_idx + 1]
+            
+            if prev_segment.transport_group == shortest_segment.transport_group:
+                merge_target = shortest_idx - 1
+            elif next_segment.transport_group == shortest_segment.transport_group:
+                merge_target = shortest_idx + 1
+            elif prev_segment.duration >= next_segment.duration:
+                merge_target = shortest_idx - 1
+            else:
+                merge_target = shortest_idx + 1
+                
+        elif shortest_idx > 0:
+            # Only has previous neighbor
+            merge_target = shortest_idx - 1
+        elif shortest_idx < len(segments) - 1:
+            # Only has next neighbor
+            merge_target = shortest_idx + 1
+        else:
+            # Only one segment left - can't merge
+            break
+        
+        if merge_target is not None:
+            target_segment = segments.loc[merge_target]
+            
+            # Merge segments - keep the transport group of the longer segment
+            if shortest_segment.sample_count > target_segment.sample_count:
+                # Shortest is actually longer, keep its attributes
+                merged_group = shortest_segment.transport_group
+                merged_atype = shortest_segment.dominant_atype
+            else:
+                # Target is longer, keep its attributes
+                merged_group = target_segment.transport_group
+                merged_atype = target_segment.dominant_atype
+            
+            # Update target segment with merged data
+            segments.loc[merge_target, 'end_time'] = max(shortest_segment.end_time, target_segment.end_time)
+            segments.loc[merge_target, 'start_time'] = min(shortest_segment.start_time, target_segment.start_time)
+            segments.loc[merge_target, 'duration'] = (segments.loc[merge_target, 'end_time'] - 
+                                                    segments.loc[merge_target, 'start_time']).total_seconds()
+            segments.loc[merge_target, 'sample_count'] += shortest_segment.sample_count
+            segments.loc[merge_target, 'transport_group'] = merged_group
+            segments.loc[merge_target, 'dominant_atype'] = merged_atype
+            
+            # Mark shortest segment's rows for merging
+            segment_mask = meaningful_df.segment_id == shortest_segment.segment_id
+            meaningful_df.loc[segment_mask, 'segment_id'] = target_segment.segment_id
+            
+            # Remove shortest segment from segments list
+            segments = segments.drop(shortest_idx).reset_index(drop=True)
+    
+    # Apply changes back to original dataframe
+    # Create mapping from segment_id to new atype
+    segment_atype_map = dict(zip(segments.segment_id, segments.dominant_atype))
+    
+    # Update meaningful rows with new atypes
+    for idx, row in meaningful_df.iterrows():
+        new_atype = segment_atype_map.get(row.segment_id)
+        if new_atype and new_atype != row.atype:
+            df.loc[idx, 'atype'] = new_atype
+    
+    return df
+
+
+def split_trip_legs(conn, uid, df, include_all=False, user_has_car=True, limit_methods=False):
     assert len(df.trip_id.unique()) == 1
 
     s = df['time'].dt.tz_convert(None) - pd.Timestamp('1970-01-01')
@@ -314,6 +460,7 @@ def split_trip_legs(conn, uid, df, include_all=False, user_has_car=True):
         distance=df.distance.to_numpy(), loc_error=df.loc_error.to_numpy(), speed=df.speed.to_numpy(dtype=np.float64, na_value=np.nan)
     )
     df.atype = df.int_atype.map(lambda x: ALL_ATYPES[x])
+    print(df.to_string())
 
     if False:
         pd.set_option("max_rows", None)
@@ -361,6 +508,10 @@ def split_trip_legs(conn, uid, df, include_all=False, user_has_car=True):
             df.loc[df.leg_id == leg_id, 'atype'] = ATYPE_BY_TRANSIT_TYPE[vtype]
 
     df = df.drop(columns=['epoch_ts', 'calc_speed', 'int_atype'])
+    
+    # Limit the trip to maximum 3 transportation methods
+    if limit_methods:
+        df = limit_transportation_methods(df, max_methods=3)
 
     return df
 
