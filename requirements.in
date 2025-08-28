@@ -14,6 +14,7 @@ djangorestframework
 django-extensions
 scipy
 arrow
+kiwisolver==1.4.0
 filterpy
 sqlalchemy
 # -e git+https://github.com/City-of-Helsinki/django-munigeo.git@0.2#egg=django-munigeo

@@ -1,6 +1,6 @@
 -c requirements.txt
 ipython
-pip-tools
+pip-tools==6.13.0
 flake8
 mypy
 pylint
