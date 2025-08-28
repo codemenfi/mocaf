@@ -126,6 +126,9 @@ class Partisipants(models.Model):
         self.survey_day = self.start_date + timedelta(days=day_num)
 
 
+    def default_variants(self):
+        return {}
+
 
 
 class DayInfo(models.Model):
