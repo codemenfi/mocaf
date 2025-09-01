@@ -460,7 +460,6 @@ def split_trip_legs(conn, uid, df, include_all=False, user_has_car=True, limit_m
         distance=df.distance.to_numpy(), loc_error=df.loc_error.to_numpy(), speed=df.speed.to_numpy(dtype=np.float64, na_value=np.nan)
     )
     df.atype = df.int_atype.map(lambda x: ALL_ATYPES[x])
-    print(df.to_string())
 
     if False:
         pd.set_option("max_rows", None)
