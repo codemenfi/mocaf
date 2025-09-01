@@ -129,7 +129,6 @@ class Partisipants(models.Model):
     def default_survey_mode(self, atype: str):
         in_vehicle = "car_driver"
         for question in self.back_question_answers:
-            print(question)
             if question["questionId"] == "Kun liikut autolla, oletko useammin":
                 in_vehicle = "car_driver" if question["answer"] == "Kuljettaja" else "car_passenger"
 
