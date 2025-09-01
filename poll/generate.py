@@ -119,7 +119,14 @@ class SurveyTripGenerator:
         # Ensure trips are ordered properly
         assert start.time >= last_ts and end.time >= last_ts
 
-        mode = self.atype_to_survey_mode[df.iloc[0].atype]
+        atype = df.iloc[0].atype
+        mode = trip.partisipant.default_survey_mode(atype)
+
+        if not mode:
+            mode = self.atype_to_survey_mode[atype]
+
+
+
 
         leg = Legs(
             trip_id=trip.id,

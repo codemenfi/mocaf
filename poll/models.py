@@ -126,8 +126,17 @@ class Partisipants(models.Model):
         self.survey_day = self.start_date + timedelta(days=day_num)
 
 
-    def default_variants(self):
-        return {}
+    def default_survey_mode(self, atype: str):
+        in_vehicle = "car_driver"
+        for question in self.back_question_answers:
+            if question["questionId"] == "Kun liikut autolla, oletko useammin":
+                in_vehicle = "car_driver" if question["answer"] == "Kuljettaja" else "car_passenger"
+
+        default_modes = {
+            "in_vehicle": in_vehicle
+        }
+
+        return default_modes.get(atype, None)
 
 
 
@@ -356,6 +365,7 @@ class Legs(models.Model):
             "trip_length": self.trip_length,
             "transport_mode": self.transport_mode,
         }
+
 
     def __str__(self):
         duration = (self.end_time - self.start_time).total_seconds() / 60
