@@ -1202,6 +1202,7 @@ class tripsLegs(DjangoObjectType):
             "transport_mode",
             "start_loc",
             "end_loc",
+            "geometry"
         )
 
 
