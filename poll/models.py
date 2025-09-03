@@ -1,3 +1,4 @@
+import json
 from django.db import models
 from enum import Enum
 from django.db import transaction
@@ -128,7 +129,19 @@ class Partisipants(models.Model):
 
     def default_survey_mode(self, atype: str):
         in_vehicle = "car_driver"
-        for question in self.back_question_answers:
+
+        # back_question_answers can be a string instead of proper JSON dict
+        answers = self.back_question_answers
+        if isinstance(answers, str):
+            answers = json.loads(answers)
+
+        if not hasattr(answers, "__iter__"):
+            return None
+
+        for question in answers:
+            if not isinstance(question, dict):
+                continue
+
             if question["questionId"] == "Kun liikut autolla, oletko useammin":
                 in_vehicle = "car_driver" if question["answer"] == "Kuljettaja" else "car_passenger"
 
