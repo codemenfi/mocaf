@@ -4,6 +4,7 @@ import pytz
 
 from mocaf.graphql_types import AuthenticatedDeviceNode
 from graphene_django import DjangoObjectType
+from django.contrib.gis.geos import LineString
 from .models import *
 from datetime import date, timedelta
 from graphql.error import GraphQLError
@@ -32,7 +33,7 @@ class PollLegNode(DjangoNode, AuthenticatedDeviceNode):
             points = list(
                 root.locations.active().values_list("loc", flat=True).order_by("time")
             )
-        return LineStringScalar(points)
+        return LineString(points)
 
     def resolve_locations(root: Legs, info):
         if not root.can_user_update():
@@ -1214,7 +1215,7 @@ class tripsLegs(DjangoObjectType):
             points = list(
                 root.locations.active().values_list("loc", flat=True).order_by("time")
             )
-        return LineStringScalar(points)
+        return LineString(points)
 
 class Query(graphene.ObjectType):
     pollActiveSurveyInfo = graphene.Field(Survey, selectedDate=graphene.Date())
