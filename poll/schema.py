@@ -1191,6 +1191,8 @@ class dayTrips(DjangoObjectType):
 
 
 class tripsLegs(DjangoObjectType):
+    geometry = LineStringScalar()
+
     class Meta:
         model = Legs
         field = (
@@ -1205,6 +1207,14 @@ class tripsLegs(DjangoObjectType):
             "geometry"
         )
 
+    def resolve_geometry(root: Legs, info):
+        if not root.can_user_update():
+            points = []
+        else:
+            points = list(
+                root.locations.active().values_list("loc", flat=True).order_by("time")
+            )
+        return LineStringScalar(points)
 
 class Query(graphene.ObjectType):
     pollActiveSurveyInfo = graphene.Field(Survey, selectedDate=graphene.Date())
