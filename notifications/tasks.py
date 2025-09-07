@@ -657,9 +657,12 @@ class ReminderNotificationTask(NotificationTask):
         super().__init__(EventTypeChoices.REMINDER_MESSAGE, now, engine, dry_run, devices, force)
 
     def recipients(self):
-        not_in_survey = (Device.objects
-                         .filter(~Q(survey_enabled=True) | Q(partisipants__isnull=True))
-                         .values('id'))
+        today = datetime.date.today()
+        not_in_survey = (Partisipants.objects
+                        .filter(start_date__gt=today)
+                        .filter(end_date__lt=today)
+                        .filter(~Q(survey_enabled=True))
+                        .values('device'))
 
         survey_approved = (Partisipants.objects
                         .filter(approved=True)
