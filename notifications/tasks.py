@@ -607,15 +607,15 @@ class NoTripsTask(NotificationTask):
         super().__init__(EventTypeChoices.NO_TRIPS, now, engine, dry_run, devices, force)
 
     def recipients(self):
+        today = datetime.date.today()
         tomorrow = datetime.date.today() + datetime.timedelta(days=1)
-        after_survey = (Partisipants.objects
-                        .filter(start_date__lte=tomorrow)
+
+        not_in_survey = (Partisipants.objects
+                        .filter(start_date__gt=today)
+                        .filter(end_date__lt=today)
+                        .filter(~Q(survey_enabled=True))
                         .values('device'))
 
-        not_in_survey = (Device.objects
-                         .filter(~Q(survey_enabled=True))
-                         .values('id'))
-        
         no_trips = Q(trips__start_time__gte=F("registered_to_survey_at")) & Q(trips__deleted=False)
         has_survey_trips = (Partisipants.objects
                             .filter(no_trips)
@@ -624,7 +624,6 @@ class NoTripsTask(NotificationTask):
 
         return (super().recipients()
                 .exclude(id__in=has_survey_trips)
-                .exclude(id__in=after_survey)
                 .exclude(id__in=not_in_survey))
 
 @register_for_management_command
@@ -633,13 +632,16 @@ class SurveyEndNotificationTask(NotificationTask):
         super().__init__(EventTypeChoices.END_OF_SURVEY, now, engine, dry_run, devices, force)
 
     def recipients(self):
-        not_in_survey = (Device.objects
-                         .filter(~Q(survey_enabled=True) | Q(partisipants__isnull=True))
-                         .values('id'))
+        today = datetime.date.today()
+        not_in_survey = (Partisipants.objects
+                        .filter(start_date__gt=today)
+                        .filter(end_date__lt=today)
+                        .filter(~Q(survey_enabled=True))
+                        .values('device'))
 
         current_day = datetime.date.today()
         survey_date_not_passed = (Partisipants.objects
-                                  .annotate(notification_day=ExpressionWrapper(F("start_date")+datetime.timedelta(days=3), output_field=DateField()))
+                                  .annotate(notification_day=ExpressionWrapper(F("end_date")+datetime.timedelta(days=1), output_field=DateField()))
                                   .filter(~Q(notification_day=current_day))
                                   .values('device'))
 
