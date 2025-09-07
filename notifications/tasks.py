@@ -613,7 +613,7 @@ class NoTripsTask(NotificationTask):
         not_in_survey = (Partisipants.objects
                         .filter(start_date__gt=today)
                         .filter(end_date__lt=today)
-                        .filter(~Q(survey_enabled=True))
+                        .filter(~Q(device__survey_enabled=True))
                         .values('device'))
 
         no_trips = Q(trips__start_time__gte=F("registered_to_survey_at")) & Q(trips__deleted=False)
@@ -636,7 +636,7 @@ class SurveyEndNotificationTask(NotificationTask):
         not_in_survey = (Partisipants.objects
                         .filter(start_date__gt=today)
                         .filter(end_date__lt=today)
-                        .filter(~Q(survey_enabled=True))
+                        .filter(~Q(device__survey_enabled=True))
                         .values('device'))
 
         current_day = datetime.date.today()
@@ -661,7 +661,7 @@ class ReminderNotificationTask(NotificationTask):
         not_in_survey = (Partisipants.objects
                         .filter(start_date__gt=today)
                         .filter(end_date__lt=today)
-                        .filter(~Q(survey_enabled=True))
+                        .filter(~Q(device__survey_enabled=True))
                         .values('device'))
 
         survey_approved = (Partisipants.objects
