@@ -234,7 +234,6 @@ class SurveyTripGenerator:
                 return
 
         count = Trips.objects.filter(legs__in=legs, partisipant=partisipant).delete()
-        pc.display("deleted %d" % count)
 
         # Create trips
         survey_enabled = Device.objects.get(uuid=uuid).survey_enabled
