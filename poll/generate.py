@@ -15,7 +15,7 @@ from calc.trips import (
 
 from utils.perf import PerfCounter
 from django.db import transaction, connection
-from django.db.models import Q, Max
+from django.db.models import Q, Exists, Max, OuterRef
 from django.contrib.gis.gdal import SpatialReference, CoordTransform
 from django.contrib.gis.geos import Point
 from django.utils import timezone
@@ -125,9 +125,6 @@ class SurveyTripGenerator:
 
         if not mode:
             mode = self.atype_to_survey_mode[atype]
-
-
-
 
         leg = Legs(
             trip_id=trip.id,
@@ -303,18 +300,14 @@ class SurveyTripGenerator:
             raise GeneratorError("Device %s not found" % uuid)
 
         current_survey = SurveyInfo.objects.filter(
-            start_day__lte=timezone.now(),
-            end_day__gte=timezone.now()
+            start_day__lte=timezone.now(), end_day__gte=timezone.now()
         ).first()
 
         if current_survey is None:
             return
 
         partisipant = (
-            Partisipants.objects.filter(
-                device=device,
-                survey_info=current_survey
-            )
+            Partisipants.objects.filter(device=device, survey_info=current_survey)
             .order_by("-registered_to_survey_at")
             .first()
         )
@@ -360,8 +353,21 @@ class SurveyTripGenerator:
             .order_by()
         )
         uuids = uuid_qs.values("uuid")
+
+        current_survey = SurveyInfo.objects.filter(
+            start_day__lte=timezone.now(), end_day__gte=timezone.now()
+        ).first()
+
+        if current_survey is None:
+            return []
+
         devices = (
             Device.objects.annotate(
+                has_active_partisipant=Exists(
+                    Partisipants.objects.filter(
+                        device=OuterRef("pk"), survey_info=current_survey
+                    )
+                ),
                 last_leg_received_at=Max("partisipants__trips__legs__received_at"),
                 last_leg_end_time=Max("partisipants__trips__legs__end_time"),
                 survey_last_processed_data_received_at=Max(
@@ -374,7 +380,7 @@ class SurveyTripGenerator:
                 "last_leg_end_time",
                 "survey_last_processed_data_received_at",
             )
-            .filter(uuid__in=uuids)
+            .filter(uuid__in=uuids, has_active_partisipant=True)
         )
         dev_by_uuid = {
             x["uuid"]: dict(
