@@ -25,6 +25,7 @@ from trips_ingest.models import Location
 from poll.models import (
     MUNICIPALITY_CHOICES,
     MUNICIPALITY_OTHER,
+    SurveyInfo,
     Trips,
     Legs,
     LegsLocation,
@@ -301,11 +302,18 @@ class SurveyTripGenerator:
         if device is None:
             raise GeneratorError("Device %s not found" % uuid)
 
+        current_survey = SurveyInfo.objects.filter(
+            start_day__lte=timezone.now(),
+            end_day__gte=timezone.now()
+        ).first()
+
+        if current_survey is None:
+            return
+
         partisipant = (
             Partisipants.objects.filter(
                 device=device,
-                survey_info__start_day__lte=start_time,
-                survey_info__end_day__gte=start_time,
+                survey_info=current_survey
             )
             .order_by("-registered_to_survey_at")
             .first()
