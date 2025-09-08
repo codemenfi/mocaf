@@ -4,6 +4,7 @@ from typing import Optional
 import sentry_sdk
 import geopandas as gpd
 import requests
+from sqlalchemy.util import has_compiled_ext
 
 from calc.trips import (
     LOCAL_2D_CRS,
@@ -345,15 +346,6 @@ class SurveyTripGenerator:
         if not min_received_at:
             min_received_at = timezone.now() - timedelta(days=7)
 
-        uuid_qs = (
-            Location.objects.filter(deleted_at__isnull=True, time__gte=min_received_at)
-            .filter(uuid__in=Device.objects.values("uuid"))
-            .values("uuid")
-            .annotate(newest_created_at=Max("created_at"))
-            .order_by()
-        )
-        uuids = uuid_qs.values("uuid")
-
         current_survey = SurveyInfo.objects.filter(
             start_day__lte=timezone.now(), end_day__gte=timezone.now()
         ).first()
@@ -361,13 +353,29 @@ class SurveyTripGenerator:
         if current_survey is None:
             return []
 
-        devices = (
+        device_uuids = (
             Device.objects.annotate(
                 has_active_partisipant=Exists(
                     Partisipants.objects.filter(
                         device=OuterRef("pk"), survey_info=current_survey
                     )
-                ),
+                )
+            )
+            .filter(has_active_partisipant=True)
+            .values("uuid")
+        )
+
+        uuid_qs = (
+            Location.objects.filter(deleted_at__isnull=True, time__gte=min_received_at)
+            .filter(uuid__in=device_uuids)
+            .values("uuid")
+            .annotate(newest_created_at=Max("created_at"))
+            .order_by()
+        )
+        uuids = uuid_qs.values("uuid")
+
+        devices = (
+            Device.objects.annotate(
                 last_leg_received_at=Max("partisipants__trips__legs__received_at"),
                 last_leg_end_time=Max("partisipants__trips__legs__end_time"),
                 survey_last_processed_data_received_at=Max(
@@ -380,7 +388,7 @@ class SurveyTripGenerator:
                 "last_leg_end_time",
                 "survey_last_processed_data_received_at",
             )
-            .filter(uuid__in=uuids, has_active_partisipant=True)
+            .filter(uuid__in=uuids)
         )
         dev_by_uuid = {
             x["uuid"]: dict(
