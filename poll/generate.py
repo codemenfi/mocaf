@@ -188,7 +188,7 @@ class SurveyTripGenerator:
 
         return
 
-    def save_trip(self, device, df, default_variants, uuid):
+    def save_trip(self, device, df, default_variants, uuid, partisipant):
         pc = PerfCounter("generate_trips", show_time_to_last=True)
         if not len(df):
             print("No samples, returning")
@@ -208,7 +208,6 @@ class SurveyTripGenerator:
         df["lat"] = df.geometry.y
         pc.display("after crs for %d points" % len(df))
 
-        partisipant = Partisipants.objects.filter(device=device).first()
         if partisipant is None:
             logger.info("No partisipant for device %s" % device)
             return
@@ -235,7 +234,7 @@ class SurveyTripGenerator:
                 return
 
         count = Trips.objects.filter(legs__in=legs, partisipant=partisipant).delete()
-        pc.display("deleted")
+        pc.display("deleted %d" % count)
 
         # Create trips
         survey_enabled = Device.objects.get(uuid=uuid).survey_enabled
@@ -273,7 +272,7 @@ class SurveyTripGenerator:
     def begin(self):
         transaction.set_autocommit(False)
 
-    def process_trip(self, device, df, uuid):
+    def process_trip(self, device, df, uuid, partisipant):
         pc = PerfCounter("process_trip")
         logger.info(
             "%s: %s: trip with %d samples" % (str(device), df.time.min(), len(df))
@@ -292,7 +291,7 @@ class SurveyTripGenerator:
             logger.info("%s: No legs for trip" % str(device))
             return
         with transaction.atomic():
-            self.save_trip(device, df, device._default_variants, uuid)
+            self.save_trip(device, df, device._default_variants, uuid, partisipant)
         pc.display("trip saved")
 
     def generate_trips(self, uuid, start_time, end_time, generation_started_at=None):
@@ -333,7 +332,7 @@ class SurveyTripGenerator:
             with sentry_sdk.configure_scope() as scope:
                 scope.set_tag("start_time", trip_df.time.min().isoformat())
                 scope.set_tag("end_time", trip_df.time.max().isoformat())
-                self.process_trip(device, trip_df, uuid)
+                self.process_trip(device, trip_df, uuid, partisipant)
                 scope.clear()
 
         if generation_started_at is not None:
