@@ -610,7 +610,7 @@ class NoTripsTask(NotificationTask):
         super().__init__(EventTypeChoices.NO_TRIPS, now, engine, dry_run, devices, force)
 
     def recipients(self):
-
+        today = self.now.date()
         current_survey = SurveyInfo.objects.filter(
             start_day__lte=self.now, end_day__gte=self.now
         ).order_by('-start_day').first()
@@ -637,9 +637,15 @@ class NoTripsTask(NotificationTask):
                             .distinct()
                             .values('device'))
 
+        not_first_survey_day = (Partisipants.objects
+                                  .filter(survey_info=current_survey)
+                                  .filter(~Q(start_date=today))
+                                  .values('device'))
+
         return (super().recipients()
                 .filter(id__in=devices)
-                .exclude(id__in=has_survey_trips))
+                .exclude(id__in=has_survey_trips)
+                .exclude(id__in=not_first_survey_day))
 
 @register_for_management_command
 class SurveyStartNotificationTask(NotificationTask):
@@ -650,7 +656,7 @@ class SurveyStartNotificationTask(NotificationTask):
         super().__init__(EventTypeChoices.SURVEY_START, now, engine, dry_run, devices, force)
 
     def recipients(self):
-        today = self.now.today()
+        today = self.now.date()
 
         current_survey = SurveyInfo.objects.filter(
             start_day__lte=self.now, end_day__gte=self.now
@@ -689,7 +695,7 @@ class SurveyEndNotificationTask(NotificationTask):
         super().__init__(EventTypeChoices.END_OF_SURVEY, now, engine, dry_run, devices, force)
 
     def recipients(self):
-        today = self.now.today()
+        today = self.now.date()
 
         current_survey = SurveyInfo.objects.filter(
             start_day__lte=self.now, end_day__gte=today-datetime.timedelta(days=1)
@@ -731,7 +737,7 @@ class ReminderNotificationTask(NotificationTask):
         super().__init__(EventTypeChoices.REMINDER_MESSAGE, now, engine, dry_run, devices, force)
 
     def recipients(self):
-        today = self.now.today()
+        today = self.now.date()
 
         current_survey = SurveyInfo.objects.filter(
             start_day__lte=today, end_day__gte=today-datetime.timedelta(days=7)
