@@ -151,10 +151,10 @@ class ApproveUserSurvey(graphene.Mutation, AuthenticatedDeviceNode):
         device = info.context.device
         partisipant = Partisipants.objects.get(survey_info=surveyId, device=device)
 
-        days = DayInfo.objects.filter(partisipant=partisipant, approved=False)
-
-        if days:
-            raise GraphQLError("There are non approved days", [info])
+        # days = DayInfo.objects.filter(partisipant=partisipant, approved=False)
+        #
+        # if days:
+        #     raise GraphQLError("There are non approved days", [info])
 
         partisipant.approved = True
         partisipant.randomize_survey_day()
