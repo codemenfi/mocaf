@@ -7,7 +7,7 @@ from celery import shared_task
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.db import transaction
-from django.db.models import QuerySet, Q, DateField, ExpressionWrapper
+from django.db.models import Exists, OuterRef, QuerySet, Q, DateField, ExpressionWrapper
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import override
@@ -603,91 +603,170 @@ class NoRecentTripsNotificationTask(NotificationTask):
 
 @register_for_management_command
 class NoTripsTask(NotificationTask):
+    """
+    Notification sent to survey partisipants if no trips have been recorded.
+    """
     def __init__(self, now=None, engine=None, dry_run=False, devices=None, force=False, min_active_days=0):
         super().__init__(EventTypeChoices.NO_TRIPS, now, engine, dry_run, devices, force)
 
     def recipients(self):
-        today = datetime.date.today()
-        tomorrow = datetime.date.today() + datetime.timedelta(days=1)
 
-        not_in_survey = (Partisipants.objects
-                        .filter(start_date__gt=today)
-                        .filter(end_date__lt=today)
-                        .filter(~Q(device__survey_enabled=True))
-                        .values('device'))
+        current_survey = SurveyInfo.objects.filter(
+            start_day__lte=self.now, end_day__gte=self.now
+        ).first()
 
-        no_trips = Q(trips__start_time__gte=F("registered_to_survey_at")) & Q(trips__deleted=False)
+        if current_survey is None:
+            return Device.objects.none()
+
+        devices = (
+            Device.objects.annotate(
+                has_active_partisipant=Exists(
+                    Partisipants.objects.filter(
+                        device=OuterRef("pk"), survey_info=current_survey
+                    )
+                )
+            )
+            .filter(has_active_partisipant=True, survey_enabled=True)
+        )
+
+
+        has_trips = Q(trips__start_time__gte=F("registered_to_survey_at")) & Q(trips__deleted=False)
         has_survey_trips = (Partisipants.objects
-                            .filter(no_trips)
+                            .filter(survey_info=current_survey)
+                            .filter(has_trips)
                             .distinct()
                             .values('device'))
 
-        return (super().recipients()
-                .exclude(id__in=has_survey_trips)
-                .exclude(id__in=not_in_survey))
+        return devices.exclude(id__in=has_survey_trips)
+
+@register_for_management_command
+class SurveyStartNotificationTask(NotificationTask):
+    """
+    Notification sent on the first survey day
+    """
+    def __init__(self, now=None, engine=None, dry_run=False, devices=None, force=False, min_active_days=0):
+        super().__init__(EventTypeChoices.SURVEY_START, now, engine, dry_run, devices, force)
+
+    def recipients(self):
+        today = datetime.date.today()
+
+        current_survey = SurveyInfo.objects.filter(
+            start_day__lte=self.now, end_day__gte=self.now
+        ).first()
+
+        if current_survey is None:
+            return Device.objects.none()
+
+        devices = (
+            Device.objects.annotate(
+                has_active_partisipant=Exists(
+                    Partisipants.objects.filter(
+                        device=OuterRef("pk"), survey_info=current_survey
+                    )
+                )
+            )
+            .filter(has_active_partisipant=True, survey_enabled=True)
+        )
+
+        not_first_survey_day = (Partisipants.objects
+                                  .filter(survey_info=current_survey)
+                                  .filter(~Q(start_date=today))
+                                  .values('device'))
+
+        return (devices.exclude(id__in=not_first_survey_day))
 
 @register_for_management_command
 class SurveyEndNotificationTask(NotificationTask):
+    """
+    Notification sent the day after the last survey day.
+    """
     def __init__(self, now=None, engine=None, dry_run=False, devices=None, force=False, min_active_days=0):
         super().__init__(EventTypeChoices.END_OF_SURVEY, now, engine, dry_run, devices, force)
 
     def recipients(self):
         today = datetime.date.today()
-        not_in_survey = (Partisipants.objects
-                        .filter(start_date__gt=today)
-                        .filter(end_date__lt=today)
-                        .filter(~Q(device__survey_enabled=True))
-                        .values('device'))
 
-        current_day = datetime.date.today()
+        current_survey = SurveyInfo.objects.filter(
+            start_day__lte=self.now, end_day__gte=today-datetime.timedelta(days=1)
+        ).first()
+
+        if current_survey is None:
+            return Device.objects.none()
+
+        devices = (
+            Device.objects.annotate(
+                has_active_partisipant=Exists(
+                    Partisipants.objects.filter(
+                        device=OuterRef("pk"), survey_info=current_survey
+                    )
+                )
+            )
+            .filter(has_active_partisipant=True, survey_enabled=True)
+        )
+
         survey_date_not_passed = (Partisipants.objects
                                   .annotate(notification_day=ExpressionWrapper(F("end_date")+datetime.timedelta(days=1), output_field=DateField()))
-                                  .filter(~Q(notification_day=current_day))
+                                  .filter(survey_info=current_survey)
+                                  .filter(~Q(notification_day=today))
                                   .values('device'))
 
-        return (super().recipients()
-                .exclude(id__in=survey_date_not_passed)
-                .exclude(id__in=not_in_survey))
+        return (devices.exclude(id__in=survey_date_not_passed))
     
     
     
 @register_for_management_command
 class ReminderNotificationTask(NotificationTask):
+    """
+    Daily reminder to check survey day trips
+    """
     def __init__(self, now=None, engine=None, dry_run=False, devices=None, force=False, min_active_days=0):
         super().__init__(EventTypeChoices.REMINDER_MESSAGE, now, engine, dry_run, devices, force)
 
     def recipients(self):
         today = datetime.date.today()
-        not_in_survey = (Partisipants.objects
-                        .filter(start_date__gt=today)
-                        .filter(end_date__lt=today)
-                        .filter(~Q(device__survey_enabled=True))
-                        .values('device'))
+
+        current_survey = SurveyInfo.objects.filter(
+            start_day__lte=today, end_day__gte=today-datetime.timedelta(days=7)
+        ).first()
+
+        if current_survey is None:
+            return Device.objects.none()
+
+        devices = (
+            Device.objects.annotate(
+                has_active_partisipant=Exists(
+                    Partisipants.objects.filter(
+                        device=OuterRef("pk"), survey_info=current_survey
+                    )
+                )
+            )
+            .filter(has_active_partisipant=True, survey_enabled=True)
+        )
+
 
         survey_approved = (Partisipants.objects
-                        .filter(approved=True)
+                        .filter(approved=True, survey_info=current_survey)
                         .values('device'))
 
         trips_approved = (Partisipants.objects
-                          .filter(trips__approved=True)
+                          .filter(trips__approved=True, survey_info=current_survey)
                           .distinct()
                           .values('device'))
 
         survey_date_not_passed = (Partisipants.objects
-                                  .filter(start_date__gte=self.now)
+                                  .filter(start_date__gte=today, survey_info=current_survey)
                                   .values('device'))
 
         notification_period_over = (Partisipants.objects
                                   .annotate(last_notification_day=ExpressionWrapper(F("end_date") + datetime.timedelta(days=7), output_field=DateField()))
-                                  .filter(last_notification_day__lt=self.now)
+                                  .filter(last_notification_day__lt=today, survey_info=current_survey)
                                   .values('device'))
 
-        return (super().recipients()
-                .exclude(id__in=survey_date_not_passed)
-                .exclude(id__in=notification_period_over)
-                .exclude(id__in=survey_approved)
-                .exclude(id__in=trips_approved)
-                .exclude(id__in=not_in_survey))
+        return (devices
+            .exclude(id__in=survey_date_not_passed)
+            .exclude(id__in=notification_period_over)
+            .exclude(id__in=survey_approved)
+            .exclude(id__in=trips_approved))
 
 @shared_task
 def send_notifications(task_class, devices=None, **kwargs):
