@@ -613,7 +613,7 @@ class NoTripsTask(NotificationTask):
 
         current_survey = SurveyInfo.objects.filter(
             start_day__lte=self.now, end_day__gte=self.now
-        ).first()
+        ).order_by('-start_day').first()
 
         if current_survey is None:
             return Device.objects.none()
@@ -654,7 +654,7 @@ class SurveyStartNotificationTask(NotificationTask):
 
         current_survey = SurveyInfo.objects.filter(
             start_day__lte=self.now, end_day__gte=self.now
-        ).first()
+        ).order_by('-start_day').first()
 
         if current_survey is None:
             return Device.objects.none()
@@ -693,7 +693,7 @@ class SurveyEndNotificationTask(NotificationTask):
 
         current_survey = SurveyInfo.objects.filter(
             start_day__lte=self.now, end_day__gte=today-datetime.timedelta(days=1)
-        ).first()
+        ).order_by('-start_day').first()
 
         if current_survey is None:
             return Device.objects.none()
@@ -716,7 +716,7 @@ class SurveyEndNotificationTask(NotificationTask):
                                   .filter(~Q(notification_day=today))
                                   .values('device'))
 
-        return (devices
+        return (super().recipients()
                 .filter(id__in=devices)
                 .exclude(id__in=survey_date_not_passed))
     
@@ -735,7 +735,7 @@ class ReminderNotificationTask(NotificationTask):
 
         current_survey = SurveyInfo.objects.filter(
             start_day__lte=today, end_day__gte=today-datetime.timedelta(days=7)
-        ).first()
+        ).order_by('-start_day').first()
 
         if current_survey is None:
             return Device.objects.none()
