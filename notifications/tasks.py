@@ -766,7 +766,7 @@ class ReminderNotificationTask(NotificationTask):
         trips_approved = (Partisipants.objects
                           .filter(survey_info=current_survey)
                           .annotate(unapproved_trips=Count("trips", filter=Q(trips__approved=False), distinct=True),)
-                          .filter(unnapproved_trips=0)
+                          .filter(unapproved_trips=0)
                           .distinct()
                           .values('device'))
 
