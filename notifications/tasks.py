@@ -7,7 +7,7 @@ from celery import shared_task
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Exists, OuterRef, QuerySet, Q, DateField, ExpressionWrapper
+from django.db.models import Exists, OuterRef, QuerySet, Q, DateField, ExpressionWrapper, Count
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.utils.translation import override
@@ -764,12 +764,14 @@ class ReminderNotificationTask(NotificationTask):
                         .values('device'))
 
         trips_approved = (Partisipants.objects
-                          .filter(trips__approved=True, survey_info=current_survey)
+                          .filter(survey_info=current_survey)
+                          .annotate(unapproved_trips=Count("trips", filter=Q(trips__approved=False), distinct=True),)
+                          .filter(unnapproved_trips=0)
                           .distinct()
                           .values('device'))
 
         survey_date_not_passed = (Partisipants.objects
-                                  .filter(start_date__gte=today, survey_info=current_survey)
+                                  .filter(start_date__gt=today, survey_info=current_survey)
                                   .values('device'))
 
         notification_period_over = (Partisipants.objects
