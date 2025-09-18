@@ -954,6 +954,13 @@ class SplitTrip(graphene.Mutation, AuthenticatedDeviceNode):
 
                 lastLeg = Legs.objects.get(pk=after_leg_id)
 
+                previous_leg = Legs.objects.filter(
+                    trip=trip_id, start_time__lt=lastLeg.start_time
+                ).last()
+
+                if previous_leg is None:
+                    raise GraphQLError("Can't split all legs to another trip")
+
                 legsObj = Legs.objects.filter(
                     trip=trip_id, start_time__gte=lastLeg.start_time
                 ).order_by("start_time")
@@ -974,7 +981,7 @@ class SplitTrip(graphene.Mutation, AuthenticatedDeviceNode):
                 if oldTripObj.original_trip == True:
                     oldTripObj.save_original_trip()
 
-                oldTripObj.end_time = lastLeg.end_time
+                oldTripObj.end_time = previous_leg.end_time
                 oldTripObj.save()
 
                 tripObj = Trips()

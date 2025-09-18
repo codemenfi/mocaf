@@ -1135,3 +1135,172 @@ def test_approve_user_survey_different_start_dates(graphql_client_query_data, uu
     expected_min = date(2023, 7, 20)
     expected_max = date(2023, 7, 22)  # start_date + 2 days
     assert expected_min <= participant1.survey_day <= expected_max
+
+
+
+@freeze_time("2023-07-15")
+def test_split_trip_success(graphql_client_query_data, uuid, token, device):
+    """Test successful trip splitting at a specific leg"""
+    # Create survey and participant
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=3
+    )
+    participant = ParticipantsFactory(device=device, survey_info=survey)
+    
+    # Create day info for the selected date
+    day_info = DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=False
+    )
+    
+    # Create a trip with multiple legs
+    trip = TripsFactory(
+        partisipant=participant,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 8, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 12, 0, 0)),
+        purpose="travel_to_work_trip",
+        approved=False,
+        original_trip=True,
+    )
+    
+    # Create three legs for the trip
+    leg1 = LegsFactory(
+        trip=trip,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 8, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 9, 0, 0)),
+        transport_mode="walking",
+        original_leg=True,
+    )
+    
+    leg2 = LegsFactory(
+        trip=trip,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 9, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 10, 30, 0)),
+        transport_mode="bus",
+        original_leg=True,
+    )
+    
+    leg3 = LegsFactory(
+        trip=trip,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 10, 30, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 12, 0, 0)),
+        transport_mode="walking",
+        original_leg=True,
+    )
+    
+    # Split the trip after leg2 (so leg2 and leg3 will be moved to new trip)
+    data = graphql_client_query_data(
+        """
+        mutation($uuid: String!, $token: String!, $tripId: ID!, $afterLegId: ID!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollSplitTrip(tripId: $tripId, afterLegId: $afterLegId, surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={
+            "uuid": uuid,
+            "token": token,
+            "tripId": trip.id,
+            "afterLegId": leg2.id,
+            "surveyId": survey.id,
+        },
+    )
+    
+    assert data["pollSplitTrip"]["ok"] is True
+    
+    # Verify original trip was modified (end time should be leg1's end time)
+    trip.refresh_from_db()
+    assert trip.end_time == leg1.end_time
+    
+    # Verify a new trip was created
+    from poll.models import Trips
+    new_trips = Trips.objects.filter(partisipant=participant, original_trip=False)
+    assert new_trips.count() == 1
+    
+    new_trip = new_trips.first()
+    assert new_trip.start_time == leg2.start_time
+    assert new_trip.end_time == leg3.end_time
+    assert new_trip.purpose == trip.purpose
+    assert new_trip.start_municipality == trip.start_municipality
+    assert new_trip.end_municipality == trip.end_municipality
+    
+    # Verify legs were moved to the new trip
+    leg2.refresh_from_db()
+    leg3.refresh_from_db()
+    assert leg2.trip == new_trip
+    assert leg3.trip == new_trip
+    
+    # Verify leg1 stayed with original trip
+    leg1.refresh_from_db()
+    assert leg1.trip == trip
+
+@freeze_time("2023-07-15")
+def test_split_trip_prevent_emptry_trips(graphql_client_query, contains_error, uuid, token, device):
+    """Test successful trip splitting at a specific leg"""
+    # Create survey and participant
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=3
+    )
+    participant = ParticipantsFactory(device=device, survey_info=survey)
+    
+    # Create day info for the selected date
+    day_info = DayInfoFactory(
+        partisipant=participant, date=date(2023, 7, 16), approved=False
+    )
+    
+    # Create a trip with multiple legs
+    trip = TripsFactory(
+        partisipant=participant,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 8, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 12, 0, 0)),
+        purpose="travel_to_work_trip",
+        approved=False,
+        original_trip=True,
+    )
+    
+    # Create three legs for the trip
+    leg1 = LegsFactory(
+        trip=trip,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 8, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 9, 0, 0)),
+        transport_mode="walking",
+        original_leg=True,
+    )
+    
+    leg2 = LegsFactory(
+        trip=trip,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 9, 0, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 10, 30, 0)),
+        transport_mode="bus",
+        original_leg=True,
+    )
+    
+    leg3 = LegsFactory(
+        trip=trip,
+        start_time=timezone.make_aware(datetime(2023, 7, 16, 10, 30, 0)),
+        end_time=timezone.make_aware(datetime(2023, 7, 16, 12, 0, 0)),
+        transport_mode="walking",
+        original_leg=True,
+    )
+    
+    # Split the trip after leg2 (so leg2 and leg3 will be moved to new trip)
+    response = graphql_client_query(
+        """
+        mutation($uuid: String!, $token: String!, $tripId: ID!, $afterLegId: ID!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollSplitTrip(tripId: $tripId, afterLegId: $afterLegId, surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={
+            "uuid": uuid,
+            "token": token,
+            "tripId": trip.id,
+            "afterLegId": leg1.id,
+            "surveyId": survey.id,
+        },
+    )
+    
+    assert contains_error(response, message="Can't split all legs to another trip")
+    
