@@ -18,7 +18,6 @@ from django.utils import timezone
 
 LOCAL_TZ = pytz.timezone("Europe/Helsinki")
 
-
 class PollLegNode(DjangoNode, AuthenticatedDeviceNode):
     can_update = graphene.Boolean()
     geometry = LineStringScalar()
@@ -207,6 +206,14 @@ class EnrollToSurvey(graphene.Mutation, AuthenticatedDeviceNode):
 
         if partisipant is not None:
             raise GraphQLError("User has allready enrolled to survey", [info])
+
+
+        survey = SurveyInfo.objects.get(pk=survey_id)
+        last_enroll_time = survey.end_day - timedelta(days=survey.days) - timedelta(hours=settings.ALLOWED_TRIP_UPDATE_HOURS)
+
+
+        if timezone.now().date() > last_enroll_time:
+            raise GraphQLError("Can't enroll to survey. Enrollment period is over.")
 
         try:
             with transaction.atomic():

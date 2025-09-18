@@ -20,7 +20,7 @@ def test_enroll_to_survey_success(graphql_client_query_data, uuid, token):
     """Test successful enrollment to an active survey"""
     # Create an active survey
     survey = SurveyInfoFactory(
-        start_day=date(2023, 7, 15), end_day=date(2023, 7, 18), days=3
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 25), days=3
     )
 
     data = graphql_client_query_data(
@@ -55,6 +55,50 @@ def test_enroll_to_survey_success(graphql_client_query_data, uuid, token):
     expected_dates = [date(2023, 7, 16), date(2023, 7, 17), date(2023, 7, 18)]
     actual_dates = [day_info.date for day_info in day_infos.order_by("date")]
     assert actual_dates == expected_dates
+
+@freeze_time("2023-07-24")
+def test_prevent_enroll_to_survey_if_survey_end_too_close(graphql_client_query, contains_error, uuid, token):
+    """Test successful enrollment to an active survey"""
+    # Create an active survey
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 25), days=3
+    )
+
+    response = graphql_client_query(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollEnrollToSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+
+    assert contains_error(response, message="Can't enroll to survey. Enrollment period is over.")
+
+@freeze_time("2023-07-25")
+def test_prevent_enroll_to_survey_if_check_period_is_over(graphql_client_query, contains_error, uuid, token):
+    """Test preventing enrollment to survey if theres not enough time to approve and edit the trips"""
+    # Create an active survey
+    survey = SurveyInfoFactory(
+        start_day=date(2023, 7, 15), end_day=date(2023, 7, 30), days=3
+    )
+
+    response = graphql_client_query(
+        """
+        mutation($uuid: String!, $token: String!, $surveyId: ID!)
+        @device(uuid: $uuid, token: $token) {
+            pollEnrollToSurvey(surveyId: $surveyId) {
+                ok
+            }
+        }
+        """,
+        variables={"uuid": uuid, "token": token, "surveyId": survey.id},
+    )
+
+    assert contains_error(response, message="Can't enroll to survey. Enrollment period is over.")
 
 
 @freeze_time("2023-07-15")
