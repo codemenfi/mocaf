@@ -238,7 +238,17 @@ class SurveyTripGenerator:
         # Create trips
         survey_enabled = Device.objects.get(uuid=uuid).survey_enabled
 
-        if survey_enabled and partisipant:
+        if partisipant is None:
+            return
+
+
+        # Don't generate trips outside survey period
+        start_date = min_time.date()
+        if start_date > partisipant.end_date or start_date < partisipant.start_date:
+            return
+
+
+        if survey_enabled:
             all_rows_survey = []
             survey_trip = Trips(
                 start_time=min_time, end_time=max_time, partisipant_id=partisipant.id
@@ -312,6 +322,8 @@ class SurveyTripGenerator:
         )
         if partisipant is None:
             return
+
+
 
         device._default_variants = {
             x.mode: x.variant for x in device.default_mode_variants.all()
