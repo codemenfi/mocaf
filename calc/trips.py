@@ -221,6 +221,100 @@ def get_transit_locations(conn, uid: str, start_time: datetime, end_time: dateti
     return df
 
 
+def get_dominant_mode_numpy(leg_ids, atype_array, leg_id):
+    """Get the most frequent transport mode for a given leg."""
+    mask = leg_ids == leg_id
+    if not np.any(mask):
+        return ATYPE_UNKNOWN
+    
+    leg_modes = atype_array[mask]
+    if len(leg_modes) == 0:
+        return ATYPE_UNKNOWN
+    
+    # Count occurrences of each mode
+    unique_modes = np.unique(leg_modes)
+    max_count = 0
+    dominant_mode = ATYPE_UNKNOWN
+    
+    for mode in unique_modes:
+        count = np.sum(leg_modes == mode)
+        if count > max_count:
+            max_count = count
+            dominant_mode = mode
+    
+    return dominant_mode
+
+
+def detect_and_merge_invalid_transitions(leg_ids, atype_array, time_array):
+    """Detect and merge bicycle ↔ vehicle transitions without 'still' between them."""
+    bicycle_mode = ALL_ATYPES.index('on_bicycle')
+    vehicle_mode = ALL_ATYPES.index('in_vehicle')
+    still_mode = ATYPE_STILL
+    
+    # Get unique leg IDs with their first occurrence times
+    unique_legs = []
+    leg_start_times = {}
+    
+    for i in range(len(leg_ids)):
+        if leg_ids[i] != -1 and leg_ids[i] not in unique_legs:
+            unique_legs.append(leg_ids[i])
+            leg_start_times[leg_ids[i]] = time_array[i]
+    
+    if len(unique_legs) <= 1:
+        return leg_ids
+    
+    # Sort legs by their start times
+    sorted_legs = sorted(unique_legs, key=lambda x: leg_start_times[x])
+    
+    # Find invalid transitions
+    legs_to_merge = []
+    
+    for i in range(len(sorted_legs) - 1):
+        current_leg = sorted_legs[i]
+        next_leg = sorted_legs[i + 1]
+        
+        current_mode = get_dominant_mode_numpy(leg_ids, atype_array, current_leg)
+        next_mode = get_dominant_mode_numpy(leg_ids, atype_array, next_leg)
+        
+        # Check for invalid bicycle ↔ vehicle transition
+        is_bicycle_to_vehicle = (current_mode == bicycle_mode and next_mode == vehicle_mode)
+        is_vehicle_to_bicycle = (current_mode == vehicle_mode and next_mode == bicycle_mode)
+        
+        if is_bicycle_to_vehicle or is_vehicle_to_bicycle:
+            # Find time range between legs
+            current_end_time = np.max(time_array[leg_ids == current_leg])
+            next_start_time = np.min(time_array[leg_ids == next_leg])
+            
+            # Check if there's enough 'still' time between legs
+            between_mask = (time_array > current_end_time) & (time_array < next_start_time)
+            still_between = np.sum((atype_array[between_mask] == still_mode) & (leg_ids[between_mask] == -1))
+            
+            # Require at least some 'still' samples between bicycle and vehicle (threshold: 3 samples)
+            if still_between < 3:
+                legs_to_merge.append((current_leg, next_leg))
+    
+    # Merge invalid transition legs
+    for leg1, leg2 in legs_to_merge:
+        # Count samples in each leg
+        leg1_count = np.sum(leg_ids == leg1)
+        leg2_count = np.sum(leg_ids == leg2)
+        
+        # Determine which leg to keep and which mode to use
+        if leg1_count >= leg2_count:
+            dominant_leg = leg1
+            merge_target_mode = get_dominant_mode_numpy(leg_ids, atype_array, leg1)
+        else:
+            dominant_leg = leg2
+            merge_target_mode = get_dominant_mode_numpy(leg_ids, atype_array, leg2)
+        
+        # Merge both legs under the same leg_id and transport mode
+        merge_mask = (leg_ids == leg1) | (leg_ids == leg2)
+        leg_ids[merge_mask] = dominant_leg
+        atype_array[merge_mask] = merge_target_mode
+    
+    return leg_ids
+
+
 @numba.njit(cache=True)
 def filter_legs(time, x, y, atype, distance, loc_error, speed):
     n_rows = len(time)
@@ -459,6 +553,12 @@ def split_trip_legs(conn, uid, df, include_all=False, user_has_car=True, limit_m
         time=df.epoch_ts.to_numpy(), x=df.x.to_numpy(), y=df.y.to_numpy(), atype=df.int_atype.to_numpy(),
         distance=df.distance.to_numpy(), loc_error=df.loc_error.to_numpy(), speed=df.speed.to_numpy(dtype=np.float64, na_value=np.nan)
     )
+    
+    # Apply invalid transition merging after filter_legs
+    df['leg_id'] = detect_and_merge_invalid_transitions(
+        df['leg_id'].to_numpy(), df.int_atype.to_numpy(), df.epoch_ts.to_numpy()
+    )
+    
     df.atype = df.int_atype.map(lambda x: ALL_ATYPES[x])
 
     if False:
