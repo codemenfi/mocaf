@@ -45,7 +45,7 @@ class APITokenMiddleware:
             raise GraphQLAuthFailedError("Invalid token", [directive])
 
         ALLOWED_MUTATIONS_WHEN_DISABLED = (
-            'enableMocaf', 'disableMocaf', 'clearUserData',
+            'enableMocaf', 'disableMocaf', 'clearUserData', 'pollActiveSurveyInfo'
         )
         if not dev.enabled and info.field_name not in ALLOWED_MUTATIONS_WHEN_DISABLED:
             raise GraphQLAuthFailedError("Mocaf disabled", [directive])
