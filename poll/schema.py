@@ -232,8 +232,6 @@ class EnrollToSurvey(graphene.Mutation, AuthenticatedDeviceNode):
                 partisipant.start_date = date.today()
                 partisipant.registered_to_survey_at = timezone.now()
                 dev.survey_enabled = True
-                if not dev.enabled:
-                    dev.set_enabled(True)
 
                 partisipant.save()
 
