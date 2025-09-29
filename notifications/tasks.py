@@ -22,7 +22,7 @@ from budget.tasks import MonthlyPrizeTask
 from trips.models import Device, DeviceQuerySet
 from poll.models import Partisipants, SurveyInfo
 from .engine import NotificationEngine
-from .models import EventTypeChoices, NotificationLogEntry, NotificationTemplate
+from .models import ActionTypeChoises, EventTypeChoices, NotificationLogEntry, NotificationTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -694,6 +694,10 @@ class SurveyEndNotificationTask(NotificationTask):
     def __init__(self, now=None, engine=None, dry_run=False, devices=None, force=False, min_active_days=0):
         super().__init__(EventTypeChoices.END_OF_SURVEY, now, engine, dry_run, devices, force)
 
+    def get_available_templates(self) -> List[NotificationTemplate]:
+        templates = NotificationTemplate.objects.filter(event_type=self.event_type).exclude(action_type=ActionTypeChoises.OPEN_FEEDBACK)
+        return list(templates)
+
     def recipients(self):
         today = self.now.date()
 
@@ -727,6 +731,49 @@ class SurveyEndNotificationTask(NotificationTask):
                 .exclude(id__in=survey_date_not_passed))
     
     
+@register_for_management_command
+class SurveyEndQuestionnaireNotificationTask(NotificationTask):
+    """
+    Notification sent the day after the editing period for survey trips is over.
+    """
+    def __init__(self, now=None, engine=None, dry_run=False, devices=None, force=False, min_active_days=0):
+        super().__init__(EventTypeChoices.END_OF_SURVEY, now, engine, dry_run, devices, force)
+
+    def get_available_templates(self) -> List[NotificationTemplate]:
+        templates = NotificationTemplate.objects.filter(event_type=self.event_type, action_type=ActionTypeChoises.OPEN_FEEDBACK)
+        return list(templates)
+
+    def recipients(self):
+        today = self.now.date()
+
+        current_survey = SurveyInfo.objects.filter(
+            start_day__lte=self.now, end_day__gte=today-datetime.timedelta(days=1)
+        ).order_by('-start_day').first()
+
+        if current_survey is None:
+            return Device.objects.none()
+
+        devices = (
+            Device.objects.annotate(
+                has_active_partisipant=Exists(
+                    Partisipants.objects.filter(
+                        device=OuterRef('pk'), survey_info=current_survey
+                    )
+                )
+            )
+            .filter(has_active_partisipant=True, survey_enabled=True)
+            .values('id')
+        )
+
+        survey_date_not_passed = (Partisipants.objects
+                                  .annotate(notification_day=ExpressionWrapper(F('end_date')+datetime.timedelta(days=4), output_field=DateField()))
+                                  .filter(survey_info=current_survey)
+                                  .filter(~Q(notification_day=today))
+                                  .values('device'))
+
+        return (super().recipients()
+                .filter(id__in=devices)
+                .exclude(id__in=survey_date_not_passed))
     
 @register_for_management_command
 class ReminderNotificationTask(NotificationTask):
@@ -775,7 +822,7 @@ class ReminderNotificationTask(NotificationTask):
                                   .values('device'))
 
         notification_period_over = (Partisipants.objects
-                                  .annotate(last_notification_day=ExpressionWrapper(F("end_date") + datetime.timedelta(days=7), output_field=DateField()))
+                                  .annotate(last_notification_day=ExpressionWrapper(F("end_date") + datetime.timedelta(days=3), output_field=DateField()))
                                   .filter(last_notification_day__lt=today, survey_info=current_survey)
                                   .values('device'))
 
