@@ -399,12 +399,14 @@ class SurveyTripGenerator:
                 survey_last_processed_data_received_at=Max(
                     "partisipants__last_processed_data_received_at"
                 ),
+                survey_end_date=Max("partisipants__end_date")
             )
             .values(
                 "uuid",
                 "last_leg_received_at",
                 "last_leg_end_time",
                 "survey_last_processed_data_received_at",
+                "survey_end_date",
             )
             .filter(uuid__in=uuids)
         )
@@ -413,6 +415,7 @@ class SurveyTripGenerator:
                 last_leg_received_at=x["last_leg_received_at"],
                 last_leg_end_time=x["last_leg_end_time"],
                 last_data_processed_at=x["survey_last_processed_data_received_at"],
+                survey_end_at=x["survey_end_date"],
             )
             for x in devices
         }
@@ -435,6 +438,11 @@ class SurveyTripGenerator:
                 if (
                     dev["last_data_processed_at"]
                     and newest_created_at <= dev["last_data_processed_at"]
+                ):
+                    continue
+                if (
+                    dev["survey_end_date"]
+                    and newest_created_at.date() > dev["survey_end_date"]
                 ):
                     continue
                 if (
