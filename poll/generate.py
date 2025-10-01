@@ -323,7 +323,12 @@ class SurveyTripGenerator:
         if partisipant is None:
             return
 
+        if partisipant.approved:
+            return
 
+        if start_time is not None and start_time > partisipant.end_date:
+            return
+        
 
         device._default_variants = {
             x.mode: x.variant for x in device.default_mode_variants.all()
