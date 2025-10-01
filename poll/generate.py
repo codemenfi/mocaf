@@ -348,7 +348,10 @@ class SurveyTripGenerator:
             with sentry_sdk.configure_scope() as scope:
                 scope.set_tag("start_time", trip_df.time.min().isoformat())
                 scope.set_tag("end_time", trip_df.time.max().isoformat())
-                self.process_trip(device, trip_df, uuid, partisipant)
+                min_time = trip_df.time.min()
+                start_date = min_time.date()
+                if start_date <= partisipant.end_date and start_date >= partisipant.start_date:
+                    self.process_trip(device, trip_df, uuid, partisipant)
                 scope.clear()
 
         if generation_started_at is not None:
