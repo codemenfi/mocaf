@@ -38,6 +38,7 @@ RUN pip install -r /code/requirements-prod.txt -r /code/requirements.txt
 
 # Install ipython for convenience
 RUN pip install ipython
+RUN apt-get install python3-gdbm
 
 RUN mkdir -p /code/analytics/client
 COPY package.json yarn.lock /code/
