@@ -326,7 +326,7 @@ class SurveyTripGenerator:
         if partisipant.approved:
             return
 
-        if start_time is not None and start_time > partisipant.end_date:
+        if start_time is not None and start_time.date() > partisipant.end_date:
             return
         
 
