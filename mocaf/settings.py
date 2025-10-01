@@ -237,6 +237,7 @@ CELERY_TASK_ROUTES = {
 # For configuration, see also another exporter: https://github.com/danihodovic/celery-exporter
 CELERY_WORKER_SEND_TASK_EVENTS = True
 # CELERY_TASK_SEND_SENT_EVENT = True  # required only for danihodovic/celery-exporter
+CELERY_WORKER_CONCURRENCY = 4
 
 # Application definition
 
