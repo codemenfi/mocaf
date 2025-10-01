@@ -441,7 +441,7 @@ class SurveyTripGenerator:
                 ):
                     continue
                 if (
-                    dev["survey_end_date"]
+                    dev["survey_end_at"]
                     and newest_created_at.date() > dev["survey_end_date"]
                 ):
                     continue
