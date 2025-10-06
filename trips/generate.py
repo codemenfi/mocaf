@@ -390,7 +390,7 @@ class TripGenerator:
         uuid_qs = (
             Location.objects
             .filter(deleted_at__isnull=True, time__gte=min_received_at)
-            .filter(uuid__in=Device.objects.values('uuid'))
+            .filter(uuid__in=Device.objects.filter(mocaf_enabled=True).values('uuid'))
             .values('uuid').annotate(newest_created_at=Max('created_at')).order_by()
         )
         uuids = uuid_qs.values('uuid')
