@@ -119,6 +119,23 @@ services:
         max-size: "100m"
         max-file: "5"
 
+  celery-survey-trips-worker:
+    container_name: mocaf_celery_survey_trips_worker
+    build: *django-build
+    restart: always
+    networks:
+      - mocaf-network
+    environment: *django-environment
+    depends_on:
+      app:
+        condition: service_healthy
+    command: celery worker surveytrips
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
   celery-transitrt-worker:
     container_name: mocaf_celery_transitrt_worker
     build: *django-build
