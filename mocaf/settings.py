@@ -229,7 +229,7 @@ CELERY_TASK_ROUTES = {
     'analytics.tasks.*': {'queue': 'analytics'},
     'trips.tasks.*': {'queue': 'trips'},
     'trips_ingest.tasks.*': {'queue': 'trips'},
-    'poll.tasks.*': {'queue': 'trips'},
+    'poll.tasks.*': {'queue': 'surveytrips'},
     'notifications.tasks.*': {'queue': 'notifications'},
 }
 
