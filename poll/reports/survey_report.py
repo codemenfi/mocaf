@@ -100,8 +100,8 @@ def export_survey_trips_json(survey):
 
         trips = Trips.objects.filter(
             partisipant=partisipant,
-            start_time__date__gte=F("partisipant__start_date"),
-            start_time__date__lte=F("partisipant__end_date"),
+            start_time__date__gte=F("partisipant__survey_day"),
+            start_time__date__lte=F("partisipant__survey_day"),
             deleted=False,
             approved=True,
         )
@@ -124,7 +124,7 @@ def export_survey_trips_json(survey):
         trips_data = serializer_trips(trips)
         deleted_trips_data = serializer_trips(deleted_trips)
 
-        partisipant_data["survey_date"] = partisipant.start_date.strftime("%Y-%m-%d")
+        partisipant_data["survey_date"] = partisipant.survey_day.strftime("%Y-%m-%d")
         partisipant_data["trips"] = trips_data
         partisipant_data["deleted_trips"] = deleted_trips_data
         partisipant_data["unapproved_trips_count"] = unapproved.count()
@@ -138,7 +138,7 @@ def export_survey_trips_json(survey):
                 partisipant.feeling_question_answers
             )
 
-        partisipant_data["approved"] = partisipant.approved or trips.count() > 0
+        partisipant_data["approved"] = partisipant.approved 
 
         data.append(partisipant_data)
 
