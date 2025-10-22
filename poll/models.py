@@ -285,7 +285,8 @@ class Trips(models.Model):
     def length(self) -> float:
         length = 0
         for leg in self.legs_set.all():
-            length += leg.trip_length
+            if leg.trip_length is not None:
+                length += leg.trip_length
         return length
 
     def last_leg(self):
