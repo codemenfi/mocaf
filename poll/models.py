@@ -126,6 +126,14 @@ class Partisipants(models.Model):
         day_num = random.random() * 3
         self.survey_day = self.start_date + timedelta(days=day_num)
 
+    def is_approved(self):
+        days_approved = True
+        for day in DayInfo.objects.filter(partisipant=self):
+            if not day.approved:
+                days_approved = False
+                break
+
+        return days_approved or self.approved
 
     def default_survey_mode(self, atype: str):
         in_vehicle = "car_driver"
@@ -289,12 +297,17 @@ class Trips(models.Model):
                 length += leg.trip_length
         return length
 
+    def first_leg(self):
+        return self.legs_set.order_by("start_time").first()
+
     def last_leg(self):
         return self.legs_set.order_by("-end_time").first()
 
     def to_json(self):
         start_time = self.start_time.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
         end_time = self.end_time.astimezone(LOCAL_TZ).strftime("%Y-%m-%d %H:%M")
+        start_loc = self.first_leg().start_loc if self.first_leg() else None
+        end_loc = self.last_leg().end_loc if self.last_leg() else None
         return {
             "id": self.pk,
             "start_time": start_time,
@@ -303,6 +316,8 @@ class Trips(models.Model):
             "approved": self.approved,
             "start_municipality": self.start_municipality,
             "end_municipality": self.end_municipality,
+            "start_loc": [start_loc.x, start_loc.y] if start_loc else None,
+            "end_loc": [end_loc.x, end_loc.y] if end_loc else None,
             "length": self.length,
             "legs": [leg.to_json() for leg in self.legs_set.all()],
         }
