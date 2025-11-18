@@ -139,7 +139,7 @@ def export_survey_trips_json(survey):
                 partisipant.feeling_question_answers
             )
 
-        partisipant_data["approved"] = partisipant.approved 
+        partisipant_data["approved"] = partisipant.is_approved()
 
         data.append(partisipant_data)
 
